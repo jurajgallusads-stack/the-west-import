@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.1
-// @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Funguje lokálne, bez Google tabuľky.
+// @version      2.1.0
+// @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: spoločné batohy a ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
 // @run-at       document-idle
@@ -12,6 +12,9 @@
 // @grant        GM_setValue
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @connect      script.google.com
+// @connect      script.googleusercontent.com
 // @updateURL    https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js
 // @downloadURL  https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js
 // ==/UserScript==
@@ -141,7 +144,18 @@
       inter: 'Medziprodukty', interNote: 'Medziprodukty v batohu sa neodpočítavajú (rovnako ako v tabuľke).',
       prof: 'Remeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer).`,
-      baseNote: 'odhad zo základnej šance'
+      baseNote: 'odhad zo základnej šance',
+      team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: uvidíte, koľko kto má v batohu, a môžete mať spoločné ciele. Údaje idú cez Google tabuľku, na herný server sa nič neposiela.',
+      connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
+      teamBadCode: 'Neplatný tímový kód.', teamConnected: 'Tím je pripojený. Klikni „Poslať môj batoh a načítať tím“.',
+      sync: 'Poslať môj batoh a načítať tím', teamWorking: 'Spájam sa s tímom…',
+      teamSynced: 'Tvoj batoh je odoslaný a tím je načítaný.', teamLoadedNoBag: 'Tím je načítaný. Tvoj batoh sa neposlal, lebo nie je načítaný – otvor v hre batoh.',
+      teamFail: 'Spojenie s tímom zlyhalo. Skús to znova.', changeCode: 'Zmeniť tímový kód', loaded: 'Načítané',
+      players: 'S kým sčítať batohy', nobody: 'Zatiaľ nikto ďalší neposlal svoj batoh.', updated: 'aktualizované',
+      goals: 'Spoločné ciele', noGoals: 'Zatiaľ žiadny spoločný cieľ.', item: 'Položka', goalTarget: 'Cieľ', me: 'Ja', sum: 'Spolu',
+      addGoal: 'Pridať cieľ', delGoal: 'Zmazať cieľ', goalAdded: 'Cieľ je pridaný.', goalDeleted: 'Cieľ je zmazaný.', myHours: h => `≈ ${h} h pre mňa`,
+      haveTeam: 'V batohu (tím)', raws: 'Suroviny', inters: 'Medziprodukty', products: 'Výrobky',
+      goalsNote: 'Počíta sa tvoj batoh a zaškrtnutí hráči. Ciele vidí celý tím.', by: 'zadal'
     },
     cz: {
       title: 'Řemeslná kalkulačka', icon: 'Řemeslná kalkulačka', close: 'Zavřít',
@@ -160,7 +174,18 @@
       inter: 'Meziprodukty', interNote: 'Meziprodukty v batohu se neodečítají (stejně jako v tabulce).',
       prof: 'Řemeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr).`,
-      baseNote: 'odhad ze základní šance'
+      baseNote: 'odhad ze základní šance',
+      team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: uvidíte, kolik kdo má v batohu, a můžete mít společné cíle. Údaje jdou přes Google tabulku, na herní server se nic neposílá.',
+      connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
+      teamBadCode: 'Neplatný týmový kód.', teamConnected: 'Tým je připojený. Klikni „Poslat můj batoh a načíst tým“.',
+      sync: 'Poslat můj batoh a načíst tým', teamWorking: 'Spojuji se s týmem…',
+      teamSynced: 'Tvůj batoh je odeslaný a tým je načtený.', teamLoadedNoBag: 'Tým je načtený. Tvůj batoh se neposlal, protože není načtený – otevři ve hře batoh.',
+      teamFail: 'Spojení s týmem selhalo. Zkus to znovu.', changeCode: 'Změnit týmový kód', loaded: 'Načteno',
+      players: 'S kým sčítat batohy', nobody: 'Zatím nikdo další neposlal svůj batoh.', updated: 'aktualizováno',
+      goals: 'Společné cíle', noGoals: 'Zatím žádný společný cíl.', item: 'Položka', goalTarget: 'Cíl', me: 'Já', sum: 'Celkem',
+      addGoal: 'Přidat cíl', delGoal: 'Smazat cíl', goalAdded: 'Cíl je přidaný.', goalDeleted: 'Cíl je smazaný.', myHours: h => `≈ ${h} h pro mě`,
+      haveTeam: 'V batohu (tým)', raws: 'Suroviny', inters: 'Meziprodukty', products: 'Výrobky',
+      goalsNote: 'Počítá se tvůj batoh a zaškrtnutí hráči. Cíle vidí celý tým.', by: 'zadal'
     }
   };
 
@@ -179,7 +204,8 @@
   function character() {
     const c = game.Character;
     if (!c?.name) return null;
-    return { key: `${world}:${c.playerId ?? c.name}`, name: c.name, level: Number(c.level) || 0 };
+    const id = String(c.playerId ?? c.name);
+    return { key: `${world}:${id}`, id, name: c.name, level: Number(c.level) || 0 };
   }
 
   const storeKey = ch => `rates:${ch.key}`;
@@ -284,6 +310,131 @@
     }
   }
 
+  // ---------- Tím: batohy a spoločné ciele cez Google tabuľku (iba po kliknutí, nie herný server) ----------
+  const teamConfig = () => GM_getValue('team', null);
+  const teamCacheKey = `teamdata:${world}`;
+  const loadTeam = () => GM_getValue(teamCacheKey, null);
+  const selKey = ch => `teamsel:${ch.key}`;
+  const loadSel = ch => GM_getValue(selKey(ch), []);
+  let teamBusy = false;
+  let teamMessage = { text: '', error: false };
+
+  function parseTeamCode(input) {
+    const m = String(input || '').match(/TWTIM:([A-Za-z0-9_\-=+/]+)/);
+    if (!m) return null;
+    let decoded;
+    try { decoded = atob(m[1].replace(/-/g, '+').replace(/_/g, '/')); } catch { return null; }
+    const [url, token] = decoded.split('|');
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url || '')) return null;
+    if (!/^[A-Za-z0-9]{8,64}$/.test(token || '')) return null;
+    return { url, token };
+  }
+
+  function setTeamMessage(text, error = false) {
+    teamMessage = { text, error };
+  }
+
+  function connectTeam() {
+    const input = window.prompt(t('teamPrompt'));
+    if (input === null) return;
+    const config = parseTeamCode(input);
+    if (!config) {
+      setTeamMessage(t('teamBadCode'), true);
+    } else {
+      GM_setValue('team', config);
+      setTeamMessage(t('teamConnected'));
+    }
+    renderTeam();
+  }
+
+  function teamRequest(body) {
+    const config = teamConfig();
+    return new Promise((resolve, reject) => {
+      const failed = () => reject(new Error(t('teamFail')));
+      GM_xmlhttpRequest({
+        method: 'POST',
+        url: config.url,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        anonymous: true,
+        data: JSON.stringify({ ...body, token: config.token, world }),
+        timeout: 30000,
+        onload: response => {
+          try {
+            const result = JSON.parse(response.responseText);
+            if (result.ok) resolve(result);
+            else reject(new Error(result.err || t('teamFail')));
+          } catch {
+            failed();
+          }
+        },
+        onerror: failed,
+        ontimeout: failed,
+        onabort: failed
+      });
+    });
+  }
+
+  async function teamCall(body, okText) {
+    if (teamBusy || !teamConfig()) return;
+    teamBusy = true;
+    setTeamMessage(t('teamWorking'));
+    renderTeam();
+    try {
+      const data = await teamRequest(body);
+      GM_setValue(teamCacheKey, { ts: Date.now(), players: data.players || [], goals: data.goals || [] });
+      setTeamMessage(okText);
+    } catch (error) {
+      setTeamMessage(error.message || t('teamFail'), true);
+    } finally {
+      teamBusy = false;
+      renderTeam();
+      renderResults();
+    }
+  }
+
+  function myInventory() {
+    const bag = bagReader();
+    if (!bag) return null;
+    const inv = {};
+    for (const id of Object.keys(DATA.items)) {
+      const n = bag(Number(id));
+      if (n > 0) inv[id] = n;
+    }
+    return inv;
+  }
+
+  function syncTeam() {
+    const ch = character();
+    if (!ch) return;
+    const inv = myInventory();
+    const body = { action: 'sync', player: { id: ch.id, name: ch.name, level: ch.level } };
+    if (inv) body.inv = inv;
+    teamCall(body, inv ? t('teamSynced') : t('teamLoadedNoBag'));
+  }
+
+  // Vybraní spoluhráči (bez mňa) z posledného načítania tímu.
+  function teammates(ch) {
+    const data = loadTeam();
+    if (!data || !ch) return [];
+    const selected = new Set(loadSel(ch));
+    return data.players.filter(p => p.id !== ch.id && selected.has(p.id));
+  }
+
+  // Batoh pre výpočet: môj batoh z hry plus batohy zaškrtnutých spoluhráčov.
+  function combinedBag(ch) {
+    const mine = bagReader();
+    const others = teammates(ch);
+    if (!others.length) return mine;
+    return id => (mine ? mine(id) : 0) + others.reduce((sum, p) => sum + (Number(p.inv?.[id]) || 0), 0);
+  }
+
+  function bagBreakdown(ch, id) {
+    const mine = bagReader();
+    const parts = [`${t('me')}: ${mine ? fmt(mine(id)) : '?'}`];
+    for (const p of teammates(ch)) parts.push(`${p.name}: ${fmt(Number(p.inv?.[id]) || 0)}`);
+    return parts.join(', ');
+  }
+
   // ---------- Rozhranie ----------
   const host = document.createElement('div');
   const ui = host.attachShadow({ mode: 'open' });
@@ -342,6 +493,15 @@
       summary { cursor: pointer; font-weight: bold; }
       .job small { display: block; color: #7a4e2d; }
       footer { padding: 0 12px 10px; }
+      #teambox summary { margin: -2px 0; }
+      #team { margin-top: 8px; }
+      #team .players { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 10px; }
+      #team .players label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+      #team h4 { margin: 10px 0 4px; font-size: 13px; }
+      #team .goaladd { margin-top: 8px; }
+      #goalitem { min-width: 220px; }
+      .link { border: 0; background: transparent; color: #7a4e2d; text-decoration: underline; cursor: pointer; padding: 0; }
+      td.ok { color: #276b27; font-weight: bold; }
       /* Užší panel (notebook, menšie okno): menšie písmo a riadky, nič sa nestratí. */
       @container (max-width: 760px) {
         .body { padding: 8px; }
@@ -377,6 +537,7 @@
         </div>
         <div id="message" class="muted" aria-live="polite"></div>
         <div id="bagwarn" class="card warn" hidden></div>
+        <details id="teambox" class="card"><summary id="teamsum"></summary><div id="team"></div></details>
         <div class="card row">
           <label><span id="lcat"></span><br><select id="category"></select></label>
           <label class="grow"><span id="lprod"></span><br><select id="product"></select></label>
@@ -483,10 +644,14 @@
     const entries = ch ? loadPlan(ch) : [];
     const store = ch ? loadStore(ch) : null;
     const level = ch?.level ?? 0;
-    const bag = bagReader();
+    const own = bagReader();
     const warn = $('bagwarn');
-    warn.hidden = !!bag;
+    warn.hidden = !!own;
     warn.textContent = t('bagMissing');
+    const teamOn = teammates(ch).length > 0;
+    const bag = combinedBag(ch);
+    const haveTitle = id => (teamOn ? ` title="${escapeHtml(bagBreakdown(ch, id))}"` : '');
+    const haveLabel = teamOn ? t('haveTeam') : t('have');
 
     const result = Calc.plan(entries.map(([id, qty]) => ({ id, qty })), store, level, bag);
     const sum = $('summary');
@@ -515,7 +680,7 @@
         return `<tr class="${cls}">
           <td>${escapeHtml(nameOf(r.id))}</td>
           <td class="n">${fmt(r.need)}</td>
-          <td class="n">${bag ? fmt(r.have) : '?'}</td>
+          <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
           <td class="n miss">${fmt(r.missing)}</td>
           <td class="job">${jobInfo}</td>
           <td class="n" title="${fmt(r.job.rate)} %">${r.job.rate > 0 ? fmt(r.chance) : '–'}</td>
@@ -526,12 +691,12 @@
     const inter = result.inter
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
       .map(r => `<tr><td>${escapeHtml(nameOf(r.id))}</td><td class="n">${fmt(r.need)}</td>
-        <td class="n">${bag ? fmt(r.have) : '?'}</td>
+        <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
         <td>${escapeHtml(DATA.profs[DATA.items[r.id][2]]?.[L()] ?? '')}</td></tr>`).join('');
 
     res.innerHTML = `
       <table>
-        <thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th><th class="n">${t('have')}</th>
+        <thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th>
           <th class="n">${t('miss')}</th><th>${t('job')}</th><th class="n">${t('chance')}</th>
           <th class="n">${t('hours')}</th><th class="n">${t('energy')}</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -540,8 +705,91 @@
       </table>
       ${inter ? `<details><summary>${t('inter')} (${result.inter.length})</summary>
         <p class="muted">${t('interNote')}</p>
-        <table><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${t('have')}</th><th>${t('prof')}</th></tr></thead>
+        <table><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th>${t('prof')}</th></tr></thead>
         <tbody>${inter}</tbody></table></details>` : ''}`;
+  }
+
+  function itemOptions() {
+    const raws = new Set(Object.keys(DATA.raws));
+    const products = new Set(DATA.products.map(p => String(p.id)));
+    const group = (label, ids) => `<optgroup label="${escapeHtml(label)}">${ids
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)))
+      .map(id => `<option value="${id}">${escapeHtml(nameOf(id))}</option>`).join('')}</optgroup>`;
+    const all = Object.keys(DATA.items);
+    return group(t('raws'), all.filter(id => raws.has(id))) +
+      group(t('inters'), all.filter(id => !raws.has(id) && !products.has(id))) +
+      group(t('products'), all.filter(id => products.has(id)));
+  }
+
+  const shortDate = ts => new Date(ts).toLocaleString(lang === 'sk' ? 'sk-SK' : 'cs-CZ', {
+    day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+
+  function renderTeam() {
+    const ch = character();
+    const config = teamConfig();
+    const data = loadTeam();
+    const box = $('team');
+    const others = (data?.players || []).filter(p => !ch || p.id !== ch.id);
+    const selected = new Set(ch ? loadSel(ch) : []);
+    const chosen = others.filter(p => selected.has(p.id));
+    $('teamsum').innerHTML = `<b>${t('team')}</b>` + (chosen.length
+      ? ` <span class="muted">(${escapeHtml([t('me'), ...chosen.map(p => p.name)].join(' + '))})</span>` : '');
+    const msg = teamMessage.text
+      ? `<div class="${teamMessage.error ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(teamMessage.text)}</div>` : '';
+    if (!config) {
+      box.innerHTML = `<p class="muted">${t('teamIntro')}</p>
+        <button class="btn" type="button" data-team="connect">${t('connect')}</button>${msg}`;
+      return;
+    }
+    const players = others.length
+      ? `<div class="players">${others.map(p => `<label title="${t('updated')} ${escapeHtml(shortDate(p.ts))}">
+          <input type="checkbox" data-player="${escapeHtml(p.id)}" ${selected.has(p.id) ? 'checked' : ''}>
+          ${escapeHtml(p.name)} <span class="muted">(${t('level')} ${p.level}, ${escapeHtml(shortDate(p.ts))})</span></label>`).join('')}</div>`
+      : `<div class="muted">${t('nobody')}</div>`;
+
+    const own = bagReader();
+    const store = ch ? loadStore(ch) : null;
+    const goals = (data?.goals || []).filter(g => DATA.items[g.item]);
+    const goalRows = goals.map(g => {
+      const mine = own ? own(g.item) : null;
+      const counts = chosen.map(p => Number(p.inv?.[g.item]) || 0);
+      const total = (mine || 0) + counts.reduce((a, b) => a + b, 0);
+      const missing = Math.max(0, g.target - total);
+      let hint = '';
+      if (missing > 0 && DATA.raws[g.item] && ch) {
+        const h = Calc.hoursFor(missing, Calc.bestJob(g.item, store, ch.level).rate);
+        if (h !== null) hint = ` <small class="muted">${escapeHtml(T[lang].myHours(fmtHours(h)))}</small>`;
+      }
+      return `<tr><td title="${t('by')}: ${escapeHtml(g.by)}">${escapeHtml(nameOf(g.item))}</td>
+        <td class="n">${fmt(g.target)}</td>
+        <td class="n">${mine === null ? '?' : fmt(mine)}</td>
+        ${counts.map(c => `<td class="n">${fmt(c)}</td>`).join('')}
+        <td class="n"><b>${fmt(total)}</b></td>
+        <td class="n ${missing ? 'miss' : 'ok'}">${missing ? fmt(missing) : '✓'}${hint}</td>
+        <td class="n"><button class="x" type="button" data-goaldel="${escapeHtml(g.id)}" title="${t('delGoal')}" aria-label="${t('delGoal')}">×</button></td></tr>`;
+    }).join('');
+    const goalTable = goals.length ? `<table><thead><tr><th>${t('item')}</th><th class="n">${t('goalTarget')}</th>
+        <th class="n">${t('me')}</th>${chosen.map(p => `<th class="n">${escapeHtml(p.name)}</th>`).join('')}
+        <th class="n">${t('sum')}</th><th class="n">${t('miss')}</th><th></th></tr></thead><tbody>${goalRows}</tbody></table>`
+      : `<div class="muted">${t('noGoals')}</div>`;
+
+    box.innerHTML = `
+      <div class="row">
+        <button class="btn" type="button" data-team="sync" ${teamBusy ? 'disabled' : ''}>${t('sync')}</button>
+        <span class="muted grow">${data?.ts ? `${t('loaded')}: ${escapeHtml(shortDate(data.ts))}` : ''}</span>
+        <button class="link" type="button" data-team="connect">${t('changeCode')}</button>
+      </div>
+      ${msg}
+      <h4>${t('players')}</h4>${players}
+      <h4>${t('goals')}</h4>
+      <div class="muted">${t('goalsNote')}</div>
+      ${goalTable}
+      <div class="row goaladd">
+        <select id="goalitem" aria-label="${t('item')}">${itemOptions()}</select>
+        <input id="goaltarget" type="number" min="1" step="1" value="100" aria-label="${t('goalTarget')}">
+        <button class="btn" type="button" data-team="goal" ${teamBusy ? 'disabled' : ''}>${t('addGoal')}</button>
+      </div>`;
   }
 
   function renderLabels() {
@@ -565,6 +813,7 @@
     renderStatus();
     renderSelects();
     renderPlan();
+    renderTeam();
     renderResults();
   }
 
@@ -683,6 +932,33 @@
     renderPlan();
     renderResults();
   });
+  $('team').addEventListener('click', event => {
+    const target = event.target.closest('button');
+    if (!target) return;
+    const action = target.dataset.team;
+    const ch = character();
+    if (action === 'connect') connectTeam();
+    else if (action === 'sync') syncTeam();
+    else if (action === 'goal' && ch) {
+      const item = Number(ui.getElementById('goalitem').value);
+      const target_ = Math.floor(Number(ui.getElementById('goaltarget').value));
+      if (item && target_ >= 1) teamCall({ action: 'goal-add', goal: { item, target: target_, by: ch.name } }, t('goalAdded'));
+    } else if (target.dataset.goaldel) {
+      teamCall({ action: 'goal-del', id: target.dataset.goaldel }, t('goalDeleted'));
+    }
+  });
+  $('team').addEventListener('change', event => {
+    const id = event.target.dataset?.player;
+    const ch = character();
+    if (id === undefined || !ch) return;
+    const selected = new Set(loadSel(ch));
+    if (event.target.checked) selected.add(id);
+    else selected.delete(id);
+    GM_setValue(selKey(ch), [...selected]);
+    renderTeam();
+    renderResults();
+  });
+  if (teamConfig()) $('teambox').open = true;
   for (const b of ui.querySelectorAll('[data-lang]')) {
     b.addEventListener('click', () => {
       lang = b.dataset.lang;
@@ -714,6 +990,7 @@
   }
 
   GM_registerMenuCommand('Otvoriť remeselnú kalkulačku', () => toggle(true));
+  GM_registerMenuCommand('Nastaviť tím (tímový kód)', () => { toggle(true); connectTeam(); });
   GM_registerMenuCommand('Vymazať uloženú nálezku tejto postavy', () => {
     const ch = character();
     if (!ch) return;
