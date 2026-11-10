@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.6.0
+// @version      2.7.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -220,7 +220,7 @@
 
   const T = {
     sk: {
-      title: 'Remeselná kalkulačka', icon: 'Remeselná kalkulačka', close: 'Zavrieť',
+      title: 'Remeselná kalkulačka', icon: 'Remeselná kalkulačka', close: 'Zavrieť', minimize: 'Minimalizovať', restore: 'Obnoviť okno',
       refresh: 'Obnoviť nálezku', refreshing: 'Načítavam nálezku…',
       rates: 'Nálezka', never: 'zatiaľ neobnovená – používa sa základná šanca a level',
       stale: 'staršia ako 7 dní', kept: n => `pri ${n} prácach ostala nálezka z lepšej sady`,
@@ -235,7 +235,7 @@
       noJob: 'nedostupná', viaPoints: 'odomknutá pracovnými bodmi', level: 'level',
       inter: 'Medziprodukty', craft: 'Vyrobiť', interNote: 'Hotové medziprodukty z batoha sa použijú a suroviny sa rátajú iba na tie, ktoré treba vyrobiť.',
       prof: 'Remeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, dvojklik na lištu ho vráti na pôvodné miesto.`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, tlačidlo – ho zbalí, dvojklik na lištu ho vráti na pôvodné miesto.`,
       baseNote: 'odhad zo základnej šance',
       team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: kto zaškrtne zdieľanie, toho batoh uvidia ostatní, a môžete mať spoločné ciele. Na herný server sa nič neposiela.',
       connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
@@ -253,7 +253,7 @@
       goalsNote: 'Počíta sa tvoj batoh a zaškrtnutí hráči. Ciele vidí celý tím.', by: 'zadal'
     },
     cz: {
-      title: 'Řemeslná kalkulačka', icon: 'Řemeslná kalkulačka', close: 'Zavřít',
+      title: 'Řemeslná kalkulačka', icon: 'Řemeslná kalkulačka', close: 'Zavřít', minimize: 'Minimalizovat', restore: 'Obnovit okno',
       refresh: 'Obnovit šanci', refreshing: 'Načítám šanci na produkt…',
       rates: 'Šance na produkt', never: 'zatím neobnovená – používá se základní šance a level',
       stale: 'starší než 7 dní', kept: n => `u ${n} prací zůstala šance z lepší sady`,
@@ -268,7 +268,7 @@
       noJob: 'nedostupná', viaPoints: 'odemčená pracovními body', level: 'level',
       inter: 'Meziprodukty', craft: 'Vyrobit', interNote: 'Hotové meziprodukty z batohu se použijí a suroviny se počítají jen na ty, které je třeba vyrobit.',
       prof: 'Řemeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, dvojklik na lištu ho vrátí na původní místo.`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, tlačítko – ho sbalí, dvojklik na lištu ho vrátí na původní místo.`,
       baseNote: 'odhad ze základní šance',
       team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: kdo zaškrtne sdílení, toho batoh uvidí ostatní, a můžete mít společné cíle. Na herní server se nic neposílá.',
       connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
@@ -570,7 +570,7 @@
         background: linear-gradient(#5e4427, #2f2015); color: #f9e2a8; font-weight: bold; }
       #open:hover, #open[aria-expanded="true"] { border-color: #d2a76a; }
       /* Poloha a veľkosť sa počítajú podľa voľného miesta medzi panelmi hry (placePanel). */
-      #panel { position: fixed; top: 110px; left: 8px; width: 860px; max-height: 70vh; overflow: auto;
+      #panel { position: fixed; top: 110px; left: 8px; width: 860px; height: 70vh; overflow: auto;
         box-sizing: border-box; background: #f4e8cc; color: #4a2f17; container-type: inline-size;
         border: 3px solid #4a2f17; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.55);
         text-align: left; line-height: 1.35; overscroll-behavior: contain; }
@@ -583,7 +583,9 @@
       header button { border: 1px solid #d9b45a; background: transparent; color: #f2dfa7;
         border-radius: 3px; padding: 2px 8px; cursor: pointer; }
       header button[aria-pressed="true"] { background: #d9b45a; color: #4a2f17; }
-      #close { font-size: 18px; line-height: 1; padding: 2px 8px; }
+      #close, #min { font-size: 18px; line-height: 1; padding: 2px 8px; }
+      #panel.min { height: auto !important; overflow: hidden; }
+      #panel.min > :not(header) { display: none; }
       .body { padding: 10px 12px 12px; }
       .card { background: #fbf4e4; border: 1px solid #d6c298; border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; }
       .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -675,6 +677,7 @@
         <h2 id="title"></h2>
         <button type="button" data-lang="sk">SK</button>
         <button type="button" data-lang="cz">CZ</button>
+        <button id="min" type="button">–</button>
         <button id="close" type="button">×</button>
       </header>
       <nav class="tabs" role="tablist">
@@ -1029,6 +1032,8 @@
     $('title').textContent = t('title');
     $('close').title = t('close');
     $('close').setAttribute('aria-label', t('close'));
+    $('min').title = t(panel.classList.contains('min') ? 'restore' : 'minimize');
+    $('min').setAttribute('aria-label', $('min').title);
     $('lcat').textContent = t('category');
     $('lprof').textContent = t('lprof');
     $('lprod').textContent = t('product');
@@ -1060,6 +1065,7 @@
   const MAX_WIDTH = 900;
   const MIN_WIDTH = 520;
   const MIN_HEIGHT = 300;
+  const MAX_HEIGHT = 680;
 
   function hudRect(id) {
     const el = document.getElementById(id);
@@ -1106,31 +1112,55 @@
     h: document.documentElement.clientHeight || window.innerHeight
   });
 
-  function clampToViewport(left, top, width) {
+  // Pás, v ktorom sa okno smie pohybovať: pod horným panelom hry a nad dolným panelom.
+  function band() {
     const { w, h } = viewport();
     return {
-      left: Math.round(Math.min(Math.max(GAP, left), Math.max(GAP, w - width - GAP))),
-      top: Math.round(Math.min(Math.max(GAP, top), Math.max(GAP, h - 120)))
+      left: GAP, right: w - GAP,
+      top: Math.min(h - 60, lowest(['ui_topbar', 'buffbars'], 0) + GAP),
+      bottom: Math.max(60, highest(['ui_bottombar'], h) - GAP)
+    };
+  }
+
+  // Okno má stálu veľkosť podľa obrazovky; pri presúvaní sa mení iba poloha.
+  let size = { w: 860, h: 500 };
+  const minimized = () => panel.classList.contains('min');
+  const panelHeight = () => (minimized() ? panel.offsetHeight : size.h);
+
+  function clampToBand(left, top) {
+    const b = band();
+    return {
+      left: Math.round(Math.min(Math.max(b.left, left), Math.max(b.left, b.right - size.w))),
+      top: Math.round(Math.min(Math.max(b.top, top), Math.max(b.top, b.bottom - panelHeight())))
     };
   }
 
   function placePanel() {
     if (panel.hidden) return;
     const a = freeArea();
-    const width = Math.max(260, Math.min(MAX_WIDTH, a.right - a.left));
-    panel.style.width = `${width}px`;
+    const b = band();
+    size = {
+      w: Math.round(Math.max(260, Math.min(MAX_WIDTH, a.right - a.left, b.right - b.left))),
+      h: Math.round(Math.max(120, Math.min(MAX_HEIGHT, b.bottom - b.top, Math.max(MIN_HEIGHT, a.bottom - a.top))))
+    };
+    panel.style.width = `${size.w}px`;
+    panel.style.height = minimized() ? '' : `${size.h}px`;
+    panel.style.maxHeight = `${Math.max(120, b.bottom - b.top)}px`;
     const saved = GM_getValue('pos', null);
-    if (saved) {
-      const { left, top } = clampToViewport(saved.left, saved.top, width);
-      panel.style.left = `${left}px`;
-      panel.style.top = `${top}px`;
-      panel.style.maxHeight = `${Math.max(112, viewport().h - top - GAP)}px`;
-      return;
-    }
-    const height = Math.max(200, a.bottom - a.top);
-    panel.style.maxHeight = `${height}px`;
-    panel.style.top = `${a.top}px`;
-    panel.style.left = `${Math.round(a.left + Math.max(0, (a.right - a.left - width) / 2))}px`;
+    const want = saved || { left: a.left + Math.max(0, (a.right - a.left - size.w) / 2), top: a.top };
+    const { left, top } = clampToBand(want.left, want.top);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  }
+
+  function setMinimized(on) {
+    panel.classList.toggle('min', on);
+    GM_setValue('min', on);
+    const btn = $('min');
+    btn.textContent = on ? '□' : '–';
+    btn.title = on ? t('restore') : t('minimize');
+    btn.setAttribute('aria-pressed', String(on));
+    placePanel();
   }
 
   let drag = null;
@@ -1145,10 +1175,9 @@
   });
   header.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.id) return;
-    const { left, top } = clampToViewport(event.clientX - drag.dx, event.clientY - drag.dy, drag.width);
+    const { left, top } = clampToBand(event.clientX - drag.dx, event.clientY - drag.dy);
     panel.style.left = `${left}px`;
     panel.style.top = `${top}px`;
-    panel.style.maxHeight = `${Math.max(112, viewport().h - top - GAP)}px`;
   });
   const endDrag = event => {
     if (!drag || event.pointerId !== drag.id) return;
@@ -1179,7 +1208,7 @@
     if (show) {
       setMessage(message.text, message.error);
       renderAll();
-      placePanel();
+      setMinimized(!!GM_getValue('min', false));
       autoTeam();
     }
   }
@@ -1194,6 +1223,7 @@
 
   openButton.addEventListener('click', () => toggle());
   $('close').addEventListener('click', () => toggle(false));
+  $('min').addEventListener('click', () => setMinimized(!minimized()));
   $('refresh').addEventListener('click', refreshRates);
   $('category').addEventListener('change', renderSelects);
   $('profession').addEventListener('change', () => {
