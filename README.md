@@ -9,11 +9,11 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 - Pri každej surovine: potrebné, v batohu, chýba, vhodná práca, isté kusy za hodinu, hodiny a energia (1 hodina = 12 energie).
 - Počíta rovnako ako tabuľka: iba obyčajné 1-hodinové práce, iba isté kusy (pri šanci aspoň 100 %), pod 100 % priemer. Strieborné práce sa nepočítajú a mapa sa neprehľadáva.
 - Prepínanie SK / CZ.
-- **Tím:** hráči z tímu si pošlú obsah batohu, každý si zaškrtne, s kým chce batohy sčítať, a môžu mať spoločné ciele (napríklad 100 píl) s prehľadom, koľko kto má, koľko spolu a koľko chýba.
+- **Tím:** kto chce, zdieľa svoj batoh s tímom. Každý si zo zoznamu vyberie, s kým chce batohy sčítať, a tím môže mať spoločné ciele (napríklad 100 tinktúr) s prehľadom, koľko kto má, koľko spolu a koľko chýba.
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.1.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.2.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
@@ -23,15 +23,15 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 3. Vyber kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
 
-## Tím: spoločné batohy a ciele
+## Tím: zdieľané batohy a spoločné ciele
 
-1. Jeden hráč (správca tímu) nastaví tímový skript v Google Apps Script a dostane **tímový kód** (začína `TWTIM:`). Ten pošle hráčom z tímu, napríklad v hernej správe. Kód nezverejňuj: kto ho má, vidí batohy tímu a môže meniť ciele.
-2. V kalkulačke otvor časť **Tím**, klikni **Pripojiť tím** a vlož tímový kód.
-3. **Poslať môj batoh a načítať tím** pošle počty položiek z tvojho batoha a načíta batohy ostatných a spoločné ciele.
-4. Zaškrtni hráčov, s ktorými chceš batohy sčítať. Stĺpec „V batohu (tím)“ v pláne potom ráta aj ich zásoby (podrž myš nad číslom a uvidíš rozpis).
-5. **Spoločné ciele:** vyber položku a počet, klikni **Pridať cieľ**. Tabuľka ukáže cieľ, tvoj počet, počty zaškrtnutých hráčov, spolu a koľko chýba, pri surovinách aj odhad hodín pre teba.
+1. Jeden hráč (správca tímu) raz nastaví tímový skript v Google Apps Script a dostane **tímový kód** (začína `TWTIM:`). Ten pošle hráčom z tímu, napríklad v hernej správe. Kód nezverejňuj: kto ho má, vidí zdieľané batohy tímu a môže meniť ciele.
+2. V kalkulačke otvor časť **Tím**, klikni **Pripojiť tím** a vlož tímový kód (iba raz).
+3. Zdieľanie je dobrovoľné. Kto zaškrtne **Zdieľať môj batoh s tímom**, toho batoh sa pošle tímu. Potom sa posiela sám pri otvorení kalkulačky, keď sa zmenil, inak najviac raz za 10 minút. Po odškrtnutí sa batoh z tímu odstráni.
+4. V zozname hráčov, ktorí zdieľajú batoh, zaškrtni tých, s ktorými chceš batohy sčítať. Stĺpec „V batohu (tím)“ v pláne potom ráta aj ich zásoby (podrž myš nad číslom a uvidíš rozpis).
+5. **Spoločné ciele:** vyber položku (surovinu, medziprodukt alebo výrobok, napríklad 100 Zázračných tinktúr) a počet a klikni **Pridať cieľ**. Pri cieli vidno tvoj počet, počty zaškrtnutých hráčov, spolu a koľko chýba. Pri surovine je aj odhad hodín pre teba, pri výrobku tlačidlo **do plánu**, ktoré pridá chýbajúce kusy do plánu.
 
-Batohy spoluhráčov sú také, aké boli pri ich poslednom odoslaní (pri mene je dátum). Tímové údaje idú iba do Google tabuľky a iba po kliknutí na tlačidlo. Na herný server tím neposiela nič.
+Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „Tím – ciele“): pri otvorení kalkulačky najviac jedna požiadavka a ďalšie len po kliknutí. Na herný server tím neposiela nič.
 
 ## Zaťaženie herného servera
 

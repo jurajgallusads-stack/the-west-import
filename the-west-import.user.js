@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.1.0
-// @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: spoločné batohy a ciele.
+// @version      2.2.0
+// @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
 // @run-at       document-idle
@@ -145,13 +145,16 @@
       prof: 'Remeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer).`,
       baseNote: 'odhad zo základnej šance',
-      team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: uvidíte, koľko kto má v batohu, a môžete mať spoločné ciele. Údaje idú cez Google tabuľku, na herný server sa nič neposiela.',
+      team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: kto zaškrtne zdieľanie, toho batoh uvidia ostatní, a môžete mať spoločné ciele. Na herný server sa nič neposiela.',
       connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
-      teamBadCode: 'Neplatný tímový kód.', teamConnected: 'Tím je pripojený. Klikni „Poslať môj batoh a načítať tím“.',
-      sync: 'Poslať môj batoh a načítať tím', teamWorking: 'Spájam sa s tímom…',
-      teamSynced: 'Tvoj batoh je odoslaný a tím je načítaný.', teamLoadedNoBag: 'Tím je načítaný. Tvoj batoh sa neposlal, lebo nie je načítaný – otvor v hre batoh.',
+      teamBadCode: 'Neplatný tímový kód.', teamConnected: 'Tím je pripojený. Ak chceš, zaškrtni zdieľanie svojho batoha.',
+      sync: 'Obnoviť tím', teamWorking: 'Spájam sa s tímom…',
+      share: 'Zdieľať môj batoh s tímom', shareHint: 'pri otvorení kalkulačky sa pošle sám, najviac raz za 10 minút',
+      sharedAt: 'môj batoh zdieľaný', notShared: 'svoj batoh nezdieľaš', unshared: 'Tvoj batoh už tím nevidí.',
+      toPlan: 'do plánu', toPlanTitle: 'Pridať chýbajúce kusy do plánu', addedToPlan: 'Chýbajúce kusy sú v pláne.',
+      teamSynced: 'Tvoj batoh je zdieľaný a tím je načítaný.', teamLoaded: 'Tím je načítaný.', teamLoadedNoBag: 'Tím je načítaný. Tvoj batoh sa neposlal, lebo nie je načítaný – otvor v hre batoh.',
       teamFail: 'Spojenie s tímom zlyhalo. Skús to znova.', changeCode: 'Zmeniť tímový kód', loaded: 'Načítané',
-      players: 'S kým sčítať batohy', nobody: 'Zatiaľ nikto ďalší neposlal svoj batoh.', updated: 'aktualizované',
+      players: 'Hráči, ktorí zdieľajú batoh – zaškrtni, s kým sčítať', nobody: 'Zatiaľ nikto ďalší nezdieľa svoj batoh.', updated: 'aktualizované',
       goals: 'Spoločné ciele', noGoals: 'Zatiaľ žiadny spoločný cieľ.', item: 'Položka', goalTarget: 'Cieľ', me: 'Ja', sum: 'Spolu',
       addGoal: 'Pridať cieľ', delGoal: 'Zmazať cieľ', goalAdded: 'Cieľ je pridaný.', goalDeleted: 'Cieľ je zmazaný.', myHours: h => `≈ ${h} h pre mňa`,
       haveTeam: 'V batohu (tím)', raws: 'Suroviny', inters: 'Medziprodukty', products: 'Výrobky',
@@ -175,13 +178,16 @@
       prof: 'Řemeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr).`,
       baseNote: 'odhad ze základní šance',
-      team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: uvidíte, kolik kdo má v batohu, a můžete mít společné cíle. Údaje jdou přes Google tabulku, na herní server se nic neposílá.',
+      team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: kdo zaškrtne sdílení, toho batoh uvidí ostatní, a můžete mít společné cíle. Na herní server se nic neposílá.',
       connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
-      teamBadCode: 'Neplatný týmový kód.', teamConnected: 'Tým je připojený. Klikni „Poslat můj batoh a načíst tým“.',
-      sync: 'Poslat můj batoh a načíst tým', teamWorking: 'Spojuji se s týmem…',
-      teamSynced: 'Tvůj batoh je odeslaný a tým je načtený.', teamLoadedNoBag: 'Tým je načtený. Tvůj batoh se neposlal, protože není načtený – otevři ve hře batoh.',
+      teamBadCode: 'Neplatný týmový kód.', teamConnected: 'Tým je připojený. Pokud chceš, zaškrtni sdílení svého batohu.',
+      sync: 'Obnovit tým', teamWorking: 'Spojuji se s týmem…',
+      share: 'Sdílet můj batoh s týmem', shareHint: 'při otevření kalkulačky se pošle sám, nejvýš jednou za 10 minut',
+      sharedAt: 'můj batoh sdílený', notShared: 'svůj batoh nesdílíš', unshared: 'Tvůj batoh už tým nevidí.',
+      toPlan: 'do plánu', toPlanTitle: 'Přidat chybějící kusy do plánu', addedToPlan: 'Chybějící kusy jsou v plánu.',
+      teamSynced: 'Tvůj batoh je sdílený a tým je načtený.', teamLoaded: 'Tým je načtený.', teamLoadedNoBag: 'Tým je načtený. Tvůj batoh se neposlal, protože není načtený – otevři ve hře batoh.',
       teamFail: 'Spojení s týmem selhalo. Zkus to znovu.', changeCode: 'Změnit týmový kód', loaded: 'Načteno',
-      players: 'S kým sčítat batohy', nobody: 'Zatím nikdo další neposlal svůj batoh.', updated: 'aktualizováno',
+      players: 'Hráči, kteří sdílejí batoh – zaškrtni, s kým sčítat', nobody: 'Zatím nikdo další nesdílí svůj batoh.', updated: 'aktualizováno',
       goals: 'Společné cíle', noGoals: 'Zatím žádný společný cíl.', item: 'Položka', goalTarget: 'Cíl', me: 'Já', sum: 'Celkem',
       addGoal: 'Přidat cíl', delGoal: 'Smazat cíl', goalAdded: 'Cíl je přidaný.', goalDeleted: 'Cíl je smazaný.', myHours: h => `≈ ${h} h pro mě`,
       haveTeam: 'V batohu (tým)', raws: 'Suroviny', inters: 'Meziprodukty', products: 'Výrobky',
@@ -403,13 +409,50 @@
     return inv;
   }
 
-  function syncTeam() {
+  // Zdieľanie je dobrovoľné: batoh sa posiela iba so zaškrtnutým „Zdieľať môj batoh s tímom“.
+  const shareKey = ch => `share:${ch.key}`;
+  const sharedKey = ch => `shared:${ch.key}`;
+  const sharing = ch => !!GM_getValue(shareKey(ch), false);
+  const SHARE_EVERY = 10 * 60000;
+  const LOAD_EVERY = 2 * 60000;
+  const invHash = inv => JSON.stringify(inv);
+
+  async function syncTeam() {
     const ch = character();
     if (!ch) return;
+    const player = { id: ch.id, name: ch.name, level: ch.level };
+    if (!sharing(ch)) {
+      const wasShared = GM_getValue(sharedKey(ch), null);
+      await teamCall(wasShared ? { action: 'unshare', player } : { action: 'team' }, t('teamLoaded'));
+      if (wasShared && !teamMessage.error) GM_setValue(sharedKey(ch), null);
+      renderTeam();
+      return;
+    }
     const inv = myInventory();
-    const body = { action: 'sync', player: { id: ch.id, name: ch.name, level: ch.level } };
-    if (inv) body.inv = inv;
-    teamCall(body, inv ? t('teamSynced') : t('teamLoadedNoBag'));
+    if (!inv) {
+      await teamCall({ action: 'team' }, t('teamLoadedNoBag'));
+      return;
+    }
+    await teamCall({ action: 'sync', player, inv }, t('teamSynced'));
+    if (!teamMessage.error) GM_setValue(sharedKey(ch), { ts: Date.now(), hash: invHash(inv) });
+    renderTeam();
+  }
+
+  // Pri otvorení kalkulačky: so zdieľaním pošle batoh, ak sa zmenil alebo prešlo 10 minút,
+  // inak načíta tím, ak je starší ako 2 minúty. Najviac jedna požiadavka do Google, herný server nič.
+  function autoTeam() {
+    const ch = character();
+    if (!ch || !teamConfig() || teamBusy) return;
+    if (sharing(ch)) {
+      const inv = myInventory();
+      const last = GM_getValue(sharedKey(ch), null);
+      if (inv && (!last || last.hash !== invHash(inv) || Date.now() - last.ts > SHARE_EVERY)) {
+        syncTeam();
+        return;
+      }
+    }
+    const data = loadTeam();
+    if (!data || Date.now() - data.ts > LOAD_EVERY) teamCall({ action: 'team' }, t('teamLoaded'));
   }
 
   // Vybraní spoluhráči (bez mňa) z posledného načítania tímu.
@@ -499,6 +542,7 @@
       #team .players label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
       #team h4 { margin: 10px 0 4px; font-size: 13px; }
       #team .goaladd { margin-top: 8px; }
+      #team .share { margin-bottom: 8px; cursor: pointer; }
       #goalitem { min-width: 220px; }
       .link { border: 0; background: transparent; color: #7a4e2d; text-decoration: underline; cursor: pointer; padding: 0; }
       td.ok { color: #276b27; font-weight: bold; }
@@ -766,7 +810,8 @@
         <td class="n">${mine === null ? '?' : fmt(mine)}</td>
         ${counts.map(c => `<td class="n">${fmt(c)}</td>`).join('')}
         <td class="n"><b>${fmt(total)}</b></td>
-        <td class="n ${missing ? 'miss' : 'ok'}">${missing ? fmt(missing) : '✓'}${hint}</td>
+        <td class="n ${missing ? 'miss' : 'ok'}">${missing ? fmt(missing) : '✓'}${hint}${missing && Calc.product(g.item)
+          ? ` <button class="link" type="button" data-toplan="${g.item}" data-missing="${missing}" title="${t('toPlanTitle')}">${t('toPlan')}</button>` : ''}</td>
         <td class="n"><button class="x" type="button" data-goaldel="${escapeHtml(g.id)}" title="${t('delGoal')}" aria-label="${t('delGoal')}">×</button></td></tr>`;
     }).join('');
     const goalTable = goals.length ? `<table><thead><tr><th>${t('item')}</th><th class="n">${t('goalTarget')}</th>
@@ -774,10 +819,17 @@
         <th class="n">${t('sum')}</th><th class="n">${t('miss')}</th><th></th></tr></thead><tbody>${goalRows}</tbody></table>`
       : `<div class="muted">${t('noGoals')}</div>`;
 
+    const shared = ch ? GM_getValue(sharedKey(ch), null) : null;
+    const shareOn = ch ? sharing(ch) : false;
     box.innerHTML = `
+      <label class="row share"><input type="checkbox" data-share ${shareOn ? 'checked' : ''} ${teamBusy ? 'disabled' : ''}>
+        <b>${t('share')}</b> <span class="muted">(${t('shareHint')})</span></label>
       <div class="row">
         <button class="btn" type="button" data-team="sync" ${teamBusy ? 'disabled' : ''}>${t('sync')}</button>
-        <span class="muted grow">${data?.ts ? `${t('loaded')}: ${escapeHtml(shortDate(data.ts))}` : ''}</span>
+        <span class="muted grow">${[
+          shareOn && shared ? `${t('sharedAt')}: ${escapeHtml(shortDate(shared.ts))}` : (shareOn ? '' : t('notShared')),
+          data?.ts ? `${t('loaded')}: ${escapeHtml(shortDate(data.ts))}` : ''
+        ].filter(Boolean).join(' · ')}</span>
         <button class="link" type="button" data-team="connect">${t('changeCode')}</button>
       </div>
       ${msg}
@@ -890,6 +942,7 @@
       setMessage(message.text, message.error);
       renderAll();
       placePanel();
+      autoTeam();
     }
   }
 
@@ -945,9 +998,29 @@
       if (item && target_ >= 1) teamCall({ action: 'goal-add', goal: { item, target: target_, by: ch.name } }, t('goalAdded'));
     } else if (target.dataset.goaldel) {
       teamCall({ action: 'goal-del', id: target.dataset.goaldel }, t('goalDeleted'));
+    } else if (target.dataset.toplan && ch) {
+      const id = Number(target.dataset.toplan);
+      const qty = Number(target.dataset.missing);
+      updatePlan(entries => {
+        const found = entries.find(([pid]) => pid === id);
+        if (found) found[1] = Math.max(found[1], qty);
+        else entries.push([id, qty]);
+      });
+      setTeamMessage(t('addedToPlan'));
+      renderTeam();
+      renderPlan();
+      renderResults();
     }
   });
   $('team').addEventListener('change', event => {
+    if (event.target.dataset?.share !== undefined) {
+      const ch = character();
+      if (!ch) return;
+      GM_setValue(shareKey(ch), event.target.checked);
+      if (!event.target.checked) setTeamMessage(t('unshared'));
+      syncTeam();
+      return;
+    }
     const id = event.target.dataset?.player;
     const ch = character();
     if (id === undefined || !ch) return;
