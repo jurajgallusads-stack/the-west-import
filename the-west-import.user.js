@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.5.0
+// @version      2.6.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -48,6 +48,8 @@
 
     // Najlepšia práca pre surovinu: najvyššia šanca, pri zhode prvá v poradí.
     function bestJob(itemId, store, level) {
+      // Položka, ktorá sa nedá nájsť prácou (kupuje sa alebo padá inak).
+      if (!DATA.raws[itemId]?.length) return { jobId: null, rate: 0, access: 'X', saved: false };
       let best = null;
       for (const [jobId] of DATA.raws[itemId]) {
         const r = { jobId, ...rateFor(jobId, itemId, store, level) };
@@ -102,7 +104,7 @@
         inter.push({ id, need, have, craft });
         for (const [child, q] of DATA.recipes[id]) add(child, q * craft);
       }
-      const rawNeed = new Map([...demand].filter(([id, n]) => DATA.raws[id] && n > 0));
+      const rawNeed = new Map([...demand].filter(([id, n]) => !DATA.recipes[id] && n > 0));
       return { rawNeed, inter };
     }
 
@@ -139,8 +141,76 @@
     return { rateFor, bestJob, hoursFor, plan, perPiece, product };
   })();
 
+  // ---------- Všetky recepty z hry (z už načítaných údajov klienta, žiadna požiadavka) ----------
+  const CAT_RULES = [/zdrav|regener/i, /energi/i, /motiva/i, /rychlost|rýchlos/i, /štěstí|šťast|nález|nálezu/i,
+    /pracovních bod|pracovných bod|zkušeností|skúsenost/i, /v duelu|v dueli/i, /pevnost|multiplayer/i];
+
+  function mergeGameRecipes(game) {
+    const IM = game?.ItemManager;
+    const JL = game?.JobList;
+    if (!IM?.getAll || !JL?.getJobsByItemId || !JL?.getJobById) return 0;
+    let all;
+    try { all = Object.values(IM.getAll() || {}); } catch { return 0; }
+    const recipes = all.filter(i => i && i.type === 'recipe' && i.craftitem && Array.isArray(i.resources) && i.resources.length);
+    if (!recipes.length) return 0;
+    const prof = Number(game.Character?.professionId) || 0;
+    const chosen = new Map();
+    for (const r of recipes) {
+      const id = Number(r.craftitem);
+      const cur = chosen.get(id);
+      // Ten istý výrobok vie viac remesiel: prednosť má moje remeslo, potom nižšia úroveň receptu.
+      const rank = x => (x.profession_id === prof ? 0 : 1e6) + (Number(x.min_level) || 0);
+      if (!cur || rank(r) < rank(cur)) chosen.set(id, r);
+    }
+    const itemName = id => IM.get(id)?.name || String(id);
+    const ensureItem = (id, profId) => {
+      if (!DATA.items[id]) DATA.items[id] = profId ? [itemName(id), itemName(id), profId] : [itemName(id), itemName(id)];
+      else if (profId && DATA.items[id].length < 3) DATA.items[id][2] = profId;
+    };
+    for (const [id, r] of chosen) {
+      DATA.recipes[id] = r.resources.map(x => [Number(x.item), Number(x.count) || 1]);
+      ensureItem(id, Number(r.profession_id));
+    }
+    // Suroviny: listy stromu receptov. Práce a základná šanca z JobList (šanca 1 h = prop × 600 %).
+    for (const resources of Object.values(DATA.recipes)) {
+      for (const [id] of resources) {
+        ensureItem(id);
+        if (DATA.recipes[id] || DATA.raws[id]) continue;
+        const jobs = (JL.getJobsByItemId(id) || []).filter(j => j?.yields?.[id]);
+        if (!jobs.length) continue;
+        DATA.raws[id] = jobs.map(j => [Number(j.id), Math.round(Number(j.yields[id].prop) * 600) || 0]);
+        for (const j of jobs) if (!DATA.jobs[j.id]) DATA.jobs[j.id] = [j.name, j.name, Number(j.level) || 0];
+      }
+    }
+    // Výrobky: všetko, čo sa dá vyrobiť. Pôvodných 23 si ponechá kategórie z tabuľky.
+    const known = new Map(DATA.products.map(p => [p.id, p]));
+    const flat = (id, n, raw, inter) => {
+      for (const [child, q] of DATA.recipes[id] || []) {
+        if (DATA.recipes[child]) {
+          inter.set(child, (inter.get(child) || 0) + q * n);
+          flat(child, q * n, raw, inter);
+        } else {
+          raw.set(child, (raw.get(child) || 0) + q * n);
+        }
+      }
+    };
+    DATA.products = [...chosen].map(([id, r]) => {
+      const raw = new Map();
+      const inter = new Map();
+      flat(id, 1, raw, inter);
+      const eff = (IM.get(id)?.usebonus || []).map(x => String(x).trim()).join('; ');
+      let cats = known.get(id)?.cats;
+      if (!cats) {
+        cats = CAT_RULES.map((rx, i) => (rx.test(eff) ? i : -1)).filter(i => i >= 0);
+        if (!cats.length) cats = [8];
+      }
+      return { id, prof: Number(r.profession_id), lvl: Number(r.min_level) || 0, cats, eff: known.get(id)?.eff ?? eff, raw: [...raw], inter: [...inter] };
+    });
+    return DATA.products.length;
+  }
+
   if (typeof unsafeWindow === 'undefined') {
-    globalThis.TWCalcTest = { DATA, Calc };
+    globalThis.TWCalcTest = { DATA, Calc, mergeGameRecipes };
     return;
   }
 
@@ -157,7 +227,7 @@
       refreshed: 'Nálezka a dostupnosť prác sú obnovené.', refreshFail: 'Obnovenie zlyhalo, ostávajú posledné uložené údaje.',
       wait: 'Počkaj, kým sa načíta herný svet.',
       bagMissing: 'Batoh ešte nie je načítaný. Otvor v hre batoh (inventár) a kalkulačka si ho prečíta.',
-      category: 'Kategória', all: 'Všetky', product: 'Výrobok', qty: 'Počet', add: 'Pridať',
+      category: 'Kategória', all: 'Všetky', lprof: 'Remeslo', allProf: 'Všetky remeslá', noSource: 'nedá sa nájsť prácou (kúpiš alebo získaš inak)', product: 'Výrobok', qty: 'Počet', add: 'Pridať',
       plan: 'Plán', remove: 'Odstrániť', emptyPlan: 'Pridaj výrobok a počet kusov.',
       hours: 'Hodiny', energy: 'Energia', unavailable: 'Nedostupné suroviny',
       total: 'Spolu', missingLv: n => `chýba ${n}`,
@@ -190,7 +260,7 @@
       refreshed: 'Šance a dostupnost prací jsou obnovené.', refreshFail: 'Obnovení selhalo, zůstávají poslední uložené údaje.',
       wait: 'Počkej, než se načte herní svět.',
       bagMissing: 'Batoh ještě není načtený. Otevři ve hře batoh (inventář) a kalkulačka si ho přečte.',
-      category: 'Kategorie', all: 'Všechny', product: 'Výrobek', qty: 'Počet', add: 'Přidat',
+      category: 'Kategorie', all: 'Všechny', lprof: 'Řemeslo', allProf: 'Všechna řemesla', noSource: 'nedá se najít prací (koupíš nebo získáš jinak)', product: 'Výrobek', qty: 'Počet', add: 'Přidat',
       plan: 'Plán', remove: 'Odebrat', emptyPlan: 'Přidej výrobek a počet kusů.',
       hours: 'Hodiny', energy: 'Energie', unavailable: 'Nedostupné suroviny',
       total: 'Celkem', missingLv: n => `chybí ${n}`,
@@ -621,6 +691,7 @@
         </div>
         <div id="message" class="muted" aria-live="polite"></div>
         <div class="card row">
+          <label><span id="lprof"></span><br><select id="profession"></select></label>
           <label><span id="lcat"></span><br><select id="category"></select></label>
           <label class="grow"><span id="lprod"></span><br><select id="product"></select></label>
           <label><span id="lqty"></span><br><input id="qty" type="number" min="1" step="1" value="1"></label>
@@ -687,16 +758,22 @@
       DATA.cats.map((c, i) => `<option value="${i}">${escapeHtml(c[L()])}</option>`).join('');
     cat.value = keep;
     const ci = categoryIndex();
+    const profSel = $('profession');
+    const myProf = Number(game.Character?.professionId) || 0;
+    const prof = GM_getValue('prof', myProf ? String(myProf) : '');
+    profSel.innerHTML = `<option value="">${t('allProf')}</option>` +
+      Object.entries(DATA.profs).map(([id, names]) => `<option value="${id}">${escapeHtml(names[L()])}</option>`).join('');
+    profSel.value = prof;
     const prod = $('product');
     const keepProduct = prod.value;
     const list = DATA.products
-      .filter(p => ci < 0 || p.cats.includes(ci))
+      .filter(p => (ci < 0 || p.cats.includes(ci)) && (!profSel.value || p.prof === Number(profSel.value)))
       .map(p => ({ p, ...Calc.perPiece(p.id, store, level) }))
       .sort((a, b) => (a.unavailable > 0) - (b.unavailable > 0) || a.hours - b.hours ||
         nameOf(a.p.id).localeCompare(nameOf(b.p.id)));
     prod.innerHTML = list.map(({ p, hours, unavailable }) => {
       const extra = unavailable ? ` (${T[lang].missingLv(unavailable)})` : '';
-      const label = `${nameOf(p.id)} – ${fmtHours(hours)} h${extra}`;
+      const label = `${nameOf(p.id)} (${p.lvl}) – ${fmtHours(hours)} h${extra}`;
       return `<option value="${p.id}" title="${escapeHtml(p.eff || '')}">${escapeHtml(label)}</option>`;
     }).join('');
     if ([...prod.options].some(o => o.value === keepProduct)) prod.value = keepProduct;
@@ -752,6 +829,12 @@
     const rows = result.raws
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
       .map(r => {
+        if (r.job.jobId === null) {
+          return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td>${escapeHtml(nameOf(r.id))}</td>
+            <td class="n">${fmt(r.need)}</td><td class="n">${bag ? fmt(r.have) : '?'}</td>
+            <td class="n miss">${fmt(r.missing)}</td><td class="job"><small>${t('noSource')}</small></td>
+            <td class="n">–</td><td class="n">–</td><td class="n">–</td></tr>`;
+        }
         const level = DATA.jobs[r.job.jobId][2];
         let jobInfo = `${escapeHtml(jobName(r.job.jobId))}<small>${t('level')} ${level}`;
         if (r.job.rate <= 0) jobInfo += ` · ${t('noJob')}`;
@@ -947,6 +1030,7 @@
     $('close').title = t('close');
     $('close').setAttribute('aria-label', t('close'));
     $('lcat').textContent = t('category');
+    $('lprof').textContent = t('lprof');
     $('lprod').textContent = t('product');
     $('lqty').textContent = t('qty');
     $('add').textContent = t('add');
@@ -1087,7 +1171,9 @@
     placeTimers = [250, 1000].map(ms => setTimeout(placePanel, ms));
   });
 
+  let gameRecipes = 0;
   function toggle(show = panel.hidden) {
+    if (show && !gameRecipes) gameRecipes = mergeGameRecipes(game);
     panel.hidden = !show;
     openButton.setAttribute('aria-expanded', String(show));
     if (show) {
@@ -1110,6 +1196,10 @@
   $('close').addEventListener('click', () => toggle(false));
   $('refresh').addEventListener('click', refreshRates);
   $('category').addEventListener('change', renderSelects);
+  $('profession').addEventListener('change', () => {
+    GM_setValue('prof', $('profession').value);
+    renderSelects();
+  });
   $('add').addEventListener('click', () => {
     const id = Number($('product').value);
     const qty = Math.max(1, Math.floor(Number($('qty').value) || 1));
