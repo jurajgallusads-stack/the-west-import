@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.7.0
+// @version      2.7.1
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -564,6 +564,9 @@
         z-index: 2147483000; font: 13px Arial, sans-serif; }
       :host([data-hud]) { position: relative; float: left; left: auto; bottom: auto;
         transform: none; margin-right: 5px; }
+      /* Okno kalkulačky je medzi hernými oknami a prekrýva sa s nimi podľa toho, na ktoré sa klikne naposledy. */
+      :host([data-panel]) { position: absolute; left: 0; top: 0; bottom: auto; width: 0; height: 0;
+        transform: none; z-index: 1; }
       button, select, input { font: inherit; }
       #open { display: block; width: 43px; height: 43px; padding: 0; cursor: pointer;
         border: 2px solid #87643c; border-radius: 3px;
@@ -709,7 +712,14 @@
     </section>
   `;
 
-  const $ = id => ui.getElementById(id);
+  // Okno žije v kontajneri herných okien (#windows), ikona ostáva v rade posilňovačov.
+  const panelHost = document.createElement('div');
+  panelHost.id = 'twcalc-panel';
+  panelHost.setAttribute('data-panel', '');
+  const pui = panelHost.attachShadow({ mode: 'open' });
+  pui.appendChild(ui.querySelector('style').cloneNode(true));
+  pui.appendChild(ui.getElementById('panel'));
+  const $ = id => ui.getElementById(id) || pui.getElementById(id);
   const panel = $('panel');
   const openButton = $('open');
   let message = { text: '', error: false };
@@ -1023,7 +1033,7 @@
   let tab = GM_getValue('tab', 'plan');
   function renderTabs() {
     $('tabplan').textContent = t('myPlan');
-    for (const b of ui.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    for (const b of pui.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     $('pane-plan').hidden = tab !== 'plan';
     $('pane-team').hidden = tab !== 'team';
   }
@@ -1043,7 +1053,7 @@
     openButton.title = t('icon');
     openButton.setAttribute('aria-label', t('icon'));
     panel.setAttribute('aria-label', t('title'));
-    for (const b of ui.querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    for (const b of pui.querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
   }
 
   function renderAll() {
@@ -1164,7 +1174,7 @@
   }
 
   let drag = null;
-  const header = ui.querySelector('header');
+  const header = pui.querySelector('header');
   header.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
@@ -1200,12 +1210,44 @@
     placeTimers = [250, 1000].map(ms => setTimeout(placePanel, ms));
   });
 
+  // Ako herné okná: kliknutie alebo presun dá okno navrch, kliknutie na herné okno ho dá zase pod neho.
+  function mountPanel() {
+    const target = document.getElementById('windows') || document.body;
+    if (panelHost.parentElement !== target) target.appendChild(panelHost);
+  }
+  function raise() {
+    const parent = panelHost.parentElement;
+    if (!parent) return;
+    if (parent === document.body) { panelHost.style.zIndex = '2147483000'; return; }
+    const others = [...parent.children].filter(c => c !== panelHost)
+      .map(c => parseInt(getComputedStyle(c).zIndex, 10) || 0);
+    const highestOther = Math.max(0, ...others);
+    if ((parseInt(panelHost.style.zIndex, 10) || 0) > highestOther) return;
+    const wm = game.wman;
+    const z = Math.max(highestOther, Number(wm?.lastIndex) || 0) + 1;
+    panelHost.style.zIndex = String(z);
+    if (wm && typeof wm.lastIndex === 'number') wm.lastIndex = z;
+  }
+  panel.addEventListener('pointerdown', raise, true);
+  mountPanel();
+  // Poistka: keď hra dá kliknuté okno navrch po svojom, kalkulačka ustúpi pod neho.
+  document.addEventListener('mousedown', event => {
+    const win = event.target?.closest?.('.tw2gui_window');
+    if (!win || panel.hidden || win.parentElement !== panelHost.parentElement) return;
+    setTimeout(() => {
+      const zw = parseInt(getComputedStyle(win).zIndex, 10) || 0;
+      if ((parseInt(panelHost.style.zIndex, 10) || 0) >= zw) panelHost.style.zIndex = String(Math.max(1, zw - 1));
+    }, 0);
+  }, true);
+
   let gameRecipes = 0;
   function toggle(show = panel.hidden) {
     if (show && !gameRecipes) gameRecipes = mergeGameRecipes(game);
+    if (show) mountPanel();
     panel.hidden = !show;
     openButton.setAttribute('aria-expanded', String(show));
     if (show) {
+      raise();
       setMessage(message.text, message.error);
       renderAll();
       setMinimized(!!GM_getValue('min', false));
@@ -1265,8 +1307,8 @@
     if (action === 'connect') connectTeam();
     else if (action === 'sync') syncTeam();
     else if (action === 'goal' && ch) {
-      const item = Number(ui.getElementById('goalitem').value);
-      const target_ = Math.floor(Number(ui.getElementById('goaltarget').value));
+      const item = Number($('goalitem').value);
+      const target_ = Math.floor(Number($('goaltarget').value));
       if (item && target_ >= 1) teamCall({ action: 'goal-add', goal: { item, target: target_, by: ch.name } }, t('goalAdded'));
     } else if (target.dataset.goaldel) {
       teamCall({ action: 'goal-del', id: target.dataset.goaldel }, t('goalDeleted'));
@@ -1312,26 +1354,28 @@
     renderTeam();
     renderResults();
   });
-  for (const b of ui.querySelectorAll('[data-tab]')) {
+  for (const b of pui.querySelectorAll('[data-tab]')) {
     b.addEventListener('click', () => {
       tab = b.dataset.tab;
       GM_setValue('tab', tab);
       renderTabs();
     });
   }
-  for (const b of ui.querySelectorAll('[data-lang]')) {
+  for (const b of pui.querySelectorAll('[data-lang]')) {
     b.addEventListener('click', () => {
       lang = b.dataset.lang;
       GM_setValue('lang', lang);
       renderAll();
     });
   }
-  ui.addEventListener('keydown', event => {
-    if (event.key === 'Escape') toggle(false);
-    event.stopPropagation();
-  });
-  ui.addEventListener('keyup', event => event.stopPropagation());
-  ui.addEventListener('keypress', event => event.stopPropagation());
+  for (const root of [ui, pui]) {
+    root.addEventListener('keydown', event => {
+      if (event.key === 'Escape') toggle(false);
+      event.stopPropagation();
+    });
+    root.addEventListener('keyup', event => event.stopPropagation());
+    root.addEventListener('keypress', event => event.stopPropagation());
+  }
 
   // Ikona ostáva vľavo od posilňovačov a prémia a posúva sa spolu s ich radom.
   function mountInBuffRow() {
