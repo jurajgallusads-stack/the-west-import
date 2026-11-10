@@ -16,7 +16,7 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.7.2). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.8.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
@@ -42,9 +42,19 @@ Tím má v kalkulačke vlastnú kartu **Tím**, oddelenú od karty **Môj plán*
 
 Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „Tím – ciele“): pri otvorení kalkulačky najviac jedna požiadavka a ďalšie len po kliknutí. Na herný server tím neposiela nič.
 
+## Predaj nepotrebných vecí
+
+Karta **Predaj** prejde batoh a ukáže, čo nepotrebuješ, s predajnou cenou a celkovou sumou. Zoznam sa zostaví z už načítaného batoha bez požiadavky na server.
+
+- Nikdy sa neponúka: oblečenie na sebe, predmety zo sád (napríklad sada bojovníka z truhiel), pomenované predmety (napríklad Athosov fleret), vylepšené predmety, suroviny, medziprodukty a výrobky z receptov, položky zo spoločných cieľov tímu, použiteľné predmety (nápoje a jedlo), recepty, zvieratá, zbierky, úlohové a nepredajné predmety.
+- Ak si v hre otvoril **Šatník**, neponúka sa ani oblečenie z tvojich uložených sád. Inak ťa na to kalkulačka upozorní.
+- Odškrtnutá vec sa tentoraz nepredá. Tlačidlom **nepredávať** ju vylúčiš natrvalo (zoznam sa dá vymazať).
+- **Predať** pri položke predá celý kus alebo stoh obchodníkovi. **Predať označené** predá všetko označené. Vždy sa najprv pýta na potvrdenie, lebo predaj sa nedá vrátiť.
+- Každá predaná položka je jedna požiadavka na server, rovnako ako pri predaji v hre. Pri „Predať označené“ idú postupne, jedna za 1,2 sekundy, a dajú sa zastaviť. Pri chybe obchodníka sa predaj zastaví.
+
 ## Zaťaženie herného servera
 
-- Otvorenie kalkulačky, výber výrobku, zmena počtu a prepočet neposielajú na herný server **žiadnu** požiadavku. Batoh aj recepty sa čítajú z údajov, ktoré už hra má načítané.
+- Otvorenie kalkulačky, výber výrobku, zmena počtu, prepočet a zoznam na predaj neposielajú na herný server **žiadnu** požiadavku. Požiadavky posiela iba predaj, a to až po potvrdení. Batoh aj recepty sa čítajú z údajov, ktoré už hra má načítané.
 - Nálezka a dostupnosť prác sa ukladajú lokálne v Tampermonkey pre každú postavu a svet. Pri nálezke sa zobrazuje dátum posledného obnovenia. Po 7 dňoch je označená ako staršia, ale ďalej sa používa.
 - Obnovenie spustí iba tlačidlo **Obnoviť nálezku** a pošle najviac **jednu** požiadavku (okno Práce). Opakované kliknutie počas načítavania ani 5 sekúnd po ňom ďalšiu požiadavku nepošle.
 - Ak obnovenie zlyhá, ostávajú posledné úspešne uložené údaje.

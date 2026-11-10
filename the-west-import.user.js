@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.7.2
+// @version      2.8.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -237,6 +237,17 @@
       prof: 'Remeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, tlačidlo – ho zbalí, dvojklik na lištu ho vráti na pôvodné miesto.`,
       baseNote: 'odhad zo základnej šance',
+      sell: 'Predaj', sellIntro: 'Veci z batoha, ktoré nepotrebuješ. Ponechajú sa sady, pomenované a vylepšené predmety, suroviny a výrobky z receptov, ciele tímu, použiteľné predmety, recepty, zvieratá a úlohové predmety. Oblečenie na sebe sa nepredáva. Odškrtnutá vec sa tentoraz nepredá, tlačidlom „nepredávať“ ju vylúčiš natrvalo.', itemCol: 'Predmet',
+      sellTotal: 'Na predaj', sellSelected: 'Označené', sellBtn: 'Predať označené', sellOne: 'Predať', sellStop: 'Zastaviť',
+      sellConfirm: (n, sum) => `Predať obchodníkovi označené položky (${n}) za ${sum}? Predaj sa nedá vrátiť. Každá položka je jedna požiadavka na server, posielajú sa postupne.`,
+      sellOneConfirm: (name, n, sum) => `Predať ${name} (${n} ks) obchodníkovi za ${sum}? Predaj sa nedá vrátiť.`,
+      selling: (i, n) => `Predávam ${i} / ${n}…`, sold: (n, sum) => `Predané položky: ${n}, spolu ${sum}.`, sellFail: 'Predaj sa nepodaril:',
+      keptLabel: 'Ponechané', keepList: 'nepredávať', resetKeep: 'Vymazať zoznam „nepredávať“',
+      gear: 'Oblečenie a zbrane', goods: 'Produkty', piece: 'za kus', total: 'Spolu', none: 'Nič na predaj.',
+      equipHint: 'Tip: otvor v hre Šatník (uložené sady oblečenia). Kalkulačka potom nebude ponúkať na predaj oblečenie z tvojich sád.',
+      equipKnown: n => `Oblečenie z ${n} uložených sád sa nepredáva.`,
+      why: { set: 'sady', named: 'pomenované', upgraded: 'vylepšené', craft: 'remeslo', goal: 'ciele tímu', usable: 'použiteľné', recipe: 'recepty',
+        animal: 'zvieratá', collection: 'zbierky', quest: 'úlohy', unique: 'jedinečné', nosell: 'nepredajné', equip: 'v sadách', keep: 'nepredávať' },
       team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: kto zaškrtne zdieľanie, toho batoh uvidia ostatní, a môžete mať spoločné ciele. Na herný server sa nič neposiela.',
       connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
       teamBadCode: 'Neplatný tímový kód.', teamConnected: 'Tím je pripojený. Ak chceš, zaškrtni zdieľanie svojho batoha.',
@@ -270,6 +281,17 @@
       prof: 'Řemeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, tlačítko – ho sbalí, dvojklik na lištu ho vrátí na původní místo.`,
       baseNote: 'odhad ze základní šance',
+      sell: 'Prodej', sellIntro: 'Věci z batohu, které nepotřebuješ. Ponechají se sady, pojmenované a vylepšené předměty, suroviny a výrobky z receptů, cíle týmu, použitelné předměty, recepty, zvířata a úkolové předměty. Oblečení na sobě se neprodává. Odškrtnutá věc se tentokrát neprodá, tlačítkem „neprodávat“ ji vyloučíš natrvalo.', itemCol: 'Předmět',
+      sellTotal: 'Na prodej', sellSelected: 'Označené', sellBtn: 'Prodat označené', sellOne: 'Prodat', sellStop: 'Zastavit',
+      sellConfirm: (n, sum) => `Prodat obchodníkovi označené položky (${n}) za ${sum}? Prodej nejde vrátit. Každá položka je jeden požadavek na server, posílají se postupně.`,
+      sellOneConfirm: (name, n, sum) => `Prodat ${name} (${n} ks) obchodníkovi za ${sum}? Prodej nejde vrátit.`,
+      selling: (i, n) => `Prodávám ${i} / ${n}…`, sold: (n, sum) => `Prodané položky: ${n}, celkem ${sum}.`, sellFail: 'Prodej se nepovedl:',
+      keptLabel: 'Ponechané', keepList: 'neprodávat', resetKeep: 'Vymazat seznam „neprodávat“',
+      gear: 'Oblečení a zbraně', goods: 'Produkty', piece: 'za kus', total: 'Celkem', none: 'Nic na prodej.',
+      equipHint: 'Tip: otevři ve hře Šatník (uložené sady oblečení). Kalkulačka pak nebude nabízet k prodeji oblečení z tvých sad.',
+      equipKnown: n => `Oblečení z ${n} uložených sad se neprodává.`,
+      why: { set: 'sady', named: 'pojmenované', upgraded: 'vylepšené', craft: 'řemeslo', goal: 'cíle týmu', usable: 'použitelné', recipe: 'recepty',
+        animal: 'zvířata', collection: 'sbírky', quest: 'úkoly', unique: 'jedinečné', nosell: 'neprodejné', equip: 'v sadách', keep: 'neprodávat' },
       team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: kdo zaškrtne sdílení, toho batoh uvidí ostatní, a můžete mít společné cíle. Na herní server se nic neposílá.',
       connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
       teamBadCode: 'Neplatný týmový kód.', teamConnected: 'Tým je připojený. Pokud chceš, zaškrtni sdílení svého batohu.',
@@ -623,6 +645,14 @@
       .job small { display: block; color: #7a4e2d; }
       footer { padding: 0 12px 10px; }
       #team { margin-top: 8px; }
+      #sell h4 { margin: 12px 0 4px; font-size: 13px; }
+      #sell table { table-layout: fixed; }
+      #sell th:nth-child(1) { width: 26px; } #sell th:nth-child(3) { width: 60px; }
+      #sell th:nth-child(4) { width: 80px; } #sell th:nth-child(5) { width: 90px; } #sell th:nth-child(6) { width: 160px; }
+      #sell td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #sell tr.off td { color: #a08a6a; }
+      #sell .lvl { font-size: 11px; color: #8a7558; }
+      #sell .sellbar { position: sticky; top: 0; z-index: 1; }
       #team .players { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 10px; }
       #team .players label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
       #team h4 { margin: 10px 0 4px; font-size: 13px; }
@@ -687,10 +717,12 @@
       <nav class="tabs" role="tablist">
         <button id="tabplan" type="button" role="tab" data-tab="plan"></button>
         <button id="tabteam" type="button" role="tab" data-tab="team"></button>
+        <button id="tabsell" type="button" role="tab" data-tab="sell"></button>
       </nav>
       <div class="body">
         <div id="bagwarn" class="card warn" hidden></div>
         <div id="pane-team" hidden><div id="team"></div></div>
+        <div id="pane-sell" hidden><div id="sell"></div></div>
         <div id="pane-plan">
         <div class="card row">
           <span id="who" class="grow"></span>
@@ -1046,6 +1078,9 @@
     for (const b of pui.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     $('pane-plan').hidden = tab !== 'plan';
     $('pane-team').hidden = tab !== 'team';
+    $('pane-sell').hidden = tab !== 'sell';
+    $('tabsell').textContent = t('sell');
+    if (tab === 'sell') renderSell();
   }
 
   function renderLabels() {
@@ -1075,6 +1110,156 @@
     renderTeam();
     renderResults();
     renderTabs();
+  }
+
+
+  // ---------- Predaj nepotrebných vecí ----------
+  // Zoznam sa zostaví z už načítaného batoha (0 požiadaviek). Predáva sa až po kliknutí a potvrdení,
+  // každá položka jednou požiadavkou ako pri predaji v hre (obchodník), postupne s odstupom.
+  const keepKey = ch => `keep:${ch.key}`;
+  const GEAR = new Set(['head', 'neck', 'body', 'belt', 'pants', 'foot', 'right_arm', 'left_arm']);
+  const SELL_GAP_MS = 1200;
+  let selling = null;
+  let sellMessage = { text: '', error: false };
+  const unchecked = new Set();
+
+  // Oblečenie z uložených sád (Šatník), ak ich hra už načítala.
+  function equipItems() {
+    const list = game.EquipManager?.list;
+    const sets = Array.isArray(list) ? list : (list && typeof list === 'object' ? Object.values(list) : []);
+    const ids = new Set();
+    const collect = v => {
+      if (v && typeof v === 'object') { for (const x of Object.values(v)) collect(x); return; }
+      const n = Number(v);
+      if (Number.isInteger(n) && n >= 1000) ids.add(n);
+    };
+    for (const set of sets) collect(set);
+    return { ids, count: sets.length };
+  }
+
+  function sellReason(o, ctx) {
+    if (ctx.keep.has(o.item_id)) return 'keep';
+    if (o.named) return 'named';
+    if (o.set) return 'set';
+    if (Number(o.item_level) > 0) return 'upgraded';
+    if (o.unique) return 'unique';
+    if (o.quest) return 'quest';
+    if (!o.sellable || !(Number(o.sell_price) > 0)) return 'nosell';
+    if (o.type === 'recipe') return 'recipe';
+    if (o.type === 'animal') return 'animal';
+    if (o.type === 'collection') return 'collection';
+    if (DATA.items[o.item_id]) return 'craft';
+    if (ctx.goals.has(o.item_id)) return 'goal';
+    if (ctx.equip.has(o.item_id)) return 'equip';
+    if (o.type === 'yield' && Array.isArray(o.usebonus) && o.usebonus.length) return 'usable';
+    if (!GEAR.has(o.type) && o.type !== 'yield') return 'nosell';
+    return null;
+  }
+
+  function sellData() {
+    const ch = character();
+    const bag = game.Bag;
+    if (!ch || !bag?.loaded || !bag.items_by_id) return null;
+    const goals = new Set((loadTeam()?.goals || []).map(g => Number(g.item)));
+    const equip = equipItems();
+    const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), goals, equip: equip.ids };
+    const items = [];
+    const kept = {};
+    for (const it of Object.values(bag.items_by_id)) {
+      const o = it?.obj;
+      if (!o || !(Number(it.count) > 0)) continue;
+      const why = sellReason(o, ctx);
+      if (why) { kept[why] = (kept[why] || 0) + 1; continue; }
+      items.push({ it, id: o.item_id, name: String(o.name).trim(), level: Number(o.level) || 0, type: o.type,
+        count: Number(it.count), price: Number(o.sell_price), sum: Number(o.sell_price) * Number(it.count) });
+    }
+    items.sort((a, b) => b.sum - a.sum || a.name.localeCompare(b.name));
+    return { ch, items, kept, keep: ctx.keep, equipSets: equip.count };
+  }
+
+  const money = n => `$${fmt(n)}`;
+
+  function renderSell() {
+    const box = $('sell');
+    if (!box || tab !== 'sell') return;
+    const data = sellData();
+    if (!data) { box.innerHTML = `<div class="card warn">${t('bagMissing')}</div>`; return; }
+    const chosen = data.items.filter(x => !unchecked.has(x.id));
+    const chosenSum = chosen.reduce((a, x) => a + x.sum, 0);
+    const busy = !!selling;
+    const msg = selling ? t('selling')(selling.done + 1, selling.total) : sellMessage.text;
+    const table = (title, rows) => rows.length ? `<h4>${title}</h4><table><thead><tr><th class="c"></th><th>${t('itemCol')}</th>
+        <th class="n">${t('qty')}</th><th class="n">${t('piece')}</th><th class="n">${t('total')}</th><th></th></tr></thead><tbody>
+        ${rows.map(x => `<tr class="${unchecked.has(x.id) ? 'off' : ''}">
+          <td class="c"><input type="checkbox" data-pick="${x.id}" ${unchecked.has(x.id) ? '' : 'checked'} ${busy ? 'disabled' : ''}></td>
+          <td>${escapeHtml(x.name)}${x.level ? ` <span class="lvl">(${t('level')} ${x.level})</span>` : ''}</td>
+          <td class="n">${fmt(x.count)}</td><td class="n">${money(x.price)}</td><td class="n"><b>${money(x.sum)}</b></td>
+          <td><button class="link" type="button" data-sellone="${x.id}" ${busy ? 'disabled' : ''}>${t('sellOne')}</button>
+            <button class="link" type="button" data-keep="${x.id}" ${busy ? 'disabled' : ''}>${t('keepList')}</button></td></tr>`).join('')}
+        </tbody></table>` : '';
+    const keptText = Object.entries(data.kept).map(([k, n]) => `${t('why')[k] || k} ${fmt(n)}`).join(' · ');
+    box.innerHTML = `
+      <p class="muted">${t('sellIntro')}</p>
+      <div class="card row sellbar">
+        <span class="grow">${t('sellTotal')}: <b>${fmt(data.items.length)}</b> · ${t('sellSelected')}: <b>${fmt(chosen.length)}</b> = <b>${money(chosenSum)}</b></span>
+        ${busy ? `<button class="btn" type="button" data-sellstop>${t('sellStop')}</button>`
+          : `<button class="btn" type="button" data-sellall ${chosen.length ? '' : 'disabled'}>${t('sellBtn')}</button>`}
+      </div>
+      ${msg ? `<div class="${sellMessage.error && !selling ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(msg)}</div>` : ''}
+      ${data.items.length ? '' : `<p class="muted">${t('none')}</p>`}
+      ${table(t('gear'), data.items.filter(x => GEAR.has(x.type)))}
+      ${table(t('goods'), data.items.filter(x => !GEAR.has(x.type)))}
+      <p class="muted">${t('keptLabel')}: ${keptText || '–'}</p>
+      <p class="muted">${data.equipSets ? t('equipKnown')(data.equipSets) : t('equipHint')}</p>
+      ${data.keep.size ? `<button class="link" type="button" data-keepreset ${busy ? 'disabled' : ''}>${t('resetKeep')} (${fmt(data.keep.size)})</button>` : ''}`;
+  }
+
+  // Jeden predaj = jedna požiadavka, rovnaká ako pri predaji obchodníkovi v hre.
+  function sellItem(x) {
+    return new Promise((resolve, reject) => {
+      const Ajax = game.Ajax;
+      const bag = game.Bag;
+      if (!Ajax?.remoteCall || !bag) { reject(new Error('no game')); return; }
+      const cur = bag.items_by_id?.[x.id];
+      if (!cur || !(Number(cur.count) > 0)) { resolve(0); return; }
+      const count = Number(cur.count);
+      const timer = setTimeout(() => reject(new Error('timeout')), 15000);
+      Ajax.remoteCall('item_trader', 'sell', {
+        inv_id: cur.inv_id, town_id: game.Character.playerId, item_id: x.id, count,
+        last_inv_id: typeof bag.getLastInvId === 'function' ? bag.getLastInvId() : undefined
+      }, json => {
+        clearTimeout(timer);
+        if (!json || json.error) { reject(new Error(typeof json?.error === 'string' ? json.error : (json?.msg || 'error'))); return; }
+        try {
+          if (json.money !== undefined) game.Character.setMoney?.(json.money);
+          if (json.changes) bag.updateChanges?.(json.changes);
+        } catch { /* hra si batoh obnoví sama */ }
+        resolve(Number(cur.obj?.sell_price || 0) * count);
+      });
+    });
+  }
+
+  async function sellList(list) {
+    if (selling || !list.length) return;
+    selling = { total: list.length, done: 0, sum: 0, stop: false };
+    sellMessage = { text: '', error: false };
+    renderSell();
+    try {
+      for (const x of list) {
+        if (selling.stop) break;
+        selling.sum += await sellItem(x);
+        selling.done++;
+        renderSell();
+        if (selling.done < selling.total && !selling.stop) await new Promise(r => setTimeout(r, SELL_GAP_MS));
+      }
+      sellMessage = { text: t('sold')(selling.done, money(selling.sum)), error: false };
+    } catch (e) {
+      sellMessage = { text: `${t('sold')(selling.done, money(selling.sum))} ${t('sellFail')} ${e.message}`, error: true };
+    } finally {
+      selling = null;
+      renderSell();
+      renderResults();
+    }
   }
 
   function L() { return lang === 'sk' ? 0 : 1; }
@@ -1308,6 +1493,38 @@
     updatePlan(entries => { entries.splice(Number(i), 1); });
     renderPlan();
     renderResults();
+  });
+  $('sell').addEventListener('click', event => {
+    const el = event.target.closest('button');
+    if (!el || el.disabled) return;
+    const data = sellData();
+    if (!data) return;
+    if (el.dataset.sellstop !== undefined) { if (selling) selling.stop = true; return; }
+    if (el.dataset.keepreset !== undefined) { GM_setValue(keepKey(data.ch), []); renderSell(); return; }
+    if (el.dataset.keep) {
+      const keep = new Set(GM_getValue(keepKey(data.ch), []));
+      keep.add(Number(el.dataset.keep));
+      GM_setValue(keepKey(data.ch), [...keep]);
+      renderSell();
+      return;
+    }
+    if (el.dataset.sellone) {
+      const x = data.items.find(i => i.id === Number(el.dataset.sellone));
+      if (x && window.confirm(t('sellOneConfirm')(x.name, fmt(x.count), money(x.sum)))) sellList([x]);
+      return;
+    }
+    if (el.dataset.sellall !== undefined) {
+      const list = data.items.filter(x => !unchecked.has(x.id));
+      const sum = list.reduce((a, x) => a + x.sum, 0);
+      if (list.length && window.confirm(t('sellConfirm')(fmt(list.length), money(sum)))) sellList(list);
+    }
+  });
+  $('sell').addEventListener('change', event => {
+    const box = event.target.closest('[data-pick]');
+    if (!box) return;
+    const id = Number(box.dataset.pick);
+    if (box.checked) unchecked.delete(id); else unchecked.add(id);
+    renderSell();
   });
   $('team').addEventListener('click', event => {
     const target = event.target.closest('button');
