@@ -16,7 +16,7 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.7.1). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.7.2). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
@@ -35,7 +35,7 @@ Tím má v kalkulačke vlastnú kartu **Tím**, oddelenú od karty **Môj plán*
 3. Zdieľanie je dobrovoľné. Kto zaškrtne **Zdieľať môj batoh s tímom**, toho batoh sa pošle tímu. Potom sa posiela sám pri otvorení kalkulačky, keď sa zmenil, inak najviac raz za 10 minút. Po odškrtnutí sa batoh z tímu odstráni.
 4. V zozname hráčov, ktorí zdieľajú batoh, zaškrtni tých, ktorých chceš rátať do spoločných cieľov.
 5. **Spoločné ciele:** vyber položku (surovinu, medziprodukt alebo výrobok) a počet a klikni **Pridať cieľ**.
-   - Pri výrobku (napríklad Zázračná tinktúra – 100 ks) je hore hlavný cieľ s celkovým percentom a hotovými kusmi. Pod ním sú suroviny potrebné na zvyšné kusy: potrebné, máme, chýba a progres v percentách.
+   - Pri výrobku (napríklad Zázračná tinktúra – 100 ks) je hore hlavný cieľ s celkovým percentom a hotovými kusmi. Pod ním sú medziprodukty a suroviny potrebné na zvyšné kusy: potrebné, máme, chýba a progres v percentách. Hotové medziprodukty celého tímu sa použijú prednostne (napríklad 101 ornamentov pri 50 lucernách), suroviny sa rátajú iba na tie, ktoré treba ešte vyrobiť.
    - Kto koľko prispel, je malým sivým písmom pod číslom (napríklad „Ja 30 · Peter 45“).
    - **Kto hľadá:** pri surovine v cieli klikni **beriem** a ostatní uvidia tvoje meno, aby ju nehľadali dvaja. Opätovným kliknutím (**nechám**) ju uvoľníš. Vyžaduje tímový skript verzie 3.
    - Pri cieli je aj odhad hodín pre teba a pri výrobku tlačidlo **do plánu**, ktoré pridá chýbajúce kusy do tvojho plánu. Cieľ sa dá zbaliť kliknutím na jeho názov.
