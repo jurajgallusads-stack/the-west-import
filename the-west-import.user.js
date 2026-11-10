@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.3.0
+// @version      2.4.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -143,7 +143,7 @@
       noJob: 'nedostupná', viaPoints: 'odomknutá pracovnými bodmi', level: 'level',
       inter: 'Medziprodukty', interNote: 'Medziprodukty v batohu sa neodpočítavajú (rovnako ako v tabuľke).',
       prof: 'Remeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer).`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, dvojklik na lištu ho vráti na pôvodné miesto.`,
       baseNote: 'odhad zo základnej šance',
       team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: kto zaškrtne zdieľanie, toho batoh uvidia ostatní, a môžete mať spoločné ciele. Na herný server sa nič neposiela.',
       connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
@@ -176,7 +176,7 @@
       noJob: 'nedostupná', viaPoints: 'odemčená pracovními body', level: 'level',
       inter: 'Meziprodukty', interNote: 'Meziprodukty v batohu se neodečítají (stejně jako v tabulce).',
       prof: 'Řemeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr).`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, dvojklik na lištu ho vrátí na původní místo.`,
       baseNote: 'odhad ze základní šance',
       team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: kdo zaškrtne sdílení, toho batoh uvidí ostatní, a můžete mít společné cíle. Na herní server se nic neposílá.',
       connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
@@ -483,7 +483,10 @@
         border: 3px solid #4a2f17; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.55);
         text-align: left; line-height: 1.35; overscroll-behavior: contain; }
       header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px;
-        padding: 8px 12px; background: #4a2f17; color: #f2dfa7; border-bottom: 3px double #d9b45a; }
+        padding: 8px 12px; background: #4a2f17; color: #f2dfa7; border-bottom: 3px double #d9b45a;
+        cursor: move; user-select: none; touch-action: none; }
+      header button { cursor: pointer; }
+      #panel.dragging { opacity: .92; box-shadow: 0 10px 32px rgba(0,0,0,.6); }
       h2 { flex: 1; margin: 0; font: bold 20px Georgia, 'Times New Roman', serif; letter-spacing: .5px; }
       header button { border: 1px solid #d9b45a; background: transparent; color: #f2dfa7;
         border-radius: 3px; padding: 2px 8px; cursor: pointer; }
@@ -975,16 +978,69 @@
     return candidates.find(fits) || candidates[candidates.length - 1];
   }
 
+  // Okno sa dá presunúť myšou za hornú lištu; poloha sa zapamätá. Dvojklik na lištu ho vráti na automatické miesto.
+  const viewport = () => ({
+    w: document.documentElement.clientWidth || window.innerWidth,
+    h: document.documentElement.clientHeight || window.innerHeight
+  });
+
+  function clampToViewport(left, top, width) {
+    const { w, h } = viewport();
+    return {
+      left: Math.round(Math.min(Math.max(GAP, left), Math.max(GAP, w - width - GAP))),
+      top: Math.round(Math.min(Math.max(GAP, top), Math.max(GAP, h - 120)))
+    };
+  }
+
   function placePanel() {
     if (panel.hidden) return;
     const a = freeArea();
     const width = Math.max(260, Math.min(MAX_WIDTH, a.right - a.left));
-    const height = Math.max(200, a.bottom - a.top);
     panel.style.width = `${width}px`;
+    const saved = GM_getValue('pos', null);
+    if (saved) {
+      const { left, top } = clampToViewport(saved.left, saved.top, width);
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.maxHeight = `${Math.max(112, viewport().h - top - GAP)}px`;
+      return;
+    }
+    const height = Math.max(200, a.bottom - a.top);
     panel.style.maxHeight = `${height}px`;
     panel.style.top = `${a.top}px`;
     panel.style.left = `${Math.round(a.left + Math.max(0, (a.right - a.left - width) / 2))}px`;
   }
+
+  let drag = null;
+  const header = ui.querySelector('header');
+  header.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || event.target.closest('button')) return;
+    const r = panel.getBoundingClientRect();
+    drag = { dx: event.clientX - r.left, dy: event.clientY - r.top, width: r.width, id: event.pointerId };
+    header.setPointerCapture(event.pointerId);
+    panel.classList.add('dragging');
+    event.preventDefault();
+  });
+  header.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const { left, top } = clampToViewport(event.clientX - drag.dx, event.clientY - drag.dy, drag.width);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.maxHeight = `${Math.max(112, viewport().h - top - GAP)}px`;
+  });
+  const endDrag = event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    drag = null;
+    panel.classList.remove('dragging');
+    GM_setValue('pos', { left: parseFloat(panel.style.left), top: parseFloat(panel.style.top) });
+  };
+  header.addEventListener('pointerup', endDrag);
+  header.addEventListener('pointercancel', endDrag);
+  header.addEventListener('dblclick', event => {
+    if (event.target.closest('button')) return;
+    GM_deleteValue('pos');
+    placePanel();
+  });
   // Hra po zmene veľkosti okna presúva svoje panely s oneskorením, preto prepočet zopakujeme.
   let placeTimers = [];
   window.addEventListener('resize', () => {
