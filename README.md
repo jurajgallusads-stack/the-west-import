@@ -7,13 +7,14 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 - Všetkých 23 výrobkov z remeselnej kalkulačky (kováč, poľný kuchár, mastičkár, sedlár) s kategóriami, receptami a medziproduktmi. Recepty sú pribalené v skripte, nič sa nesťahuje.
 - Plán z jedného aj viacerých výrobkov s počtom kusov. Pri spoločnom pláne sa potreby surovín najprv sčítajú a obsah batohu sa odpočíta raz od súčtu, takže sa jedna zásoba nezapočíta dvakrát.
 - Pri každej surovine: potrebné, v batohu, chýba, vhodná práca, isté kusy za hodinu, hodiny a energia (1 hodina = 12 energie).
+- Hotové medziprodukty z batoha sa použijú prednostne (napríklad roztavené olovo): suroviny sa rátajú iba na medziprodukty, ktoré ešte treba vyrobiť. Tabuľka medziproduktov ukazuje potrebné, v batohu a koľko vyrobiť.
 - Počíta rovnako ako tabuľka: iba obyčajné 1-hodinové práce, iba isté kusy (pri šanci aspoň 100 %), pod 100 % priemer. Strieborné práce sa nepočítajú a mapa sa neprehľadáva.
 - Prepínanie SK / CZ.
 - **Tím:** kto chce, zdieľa svoj batoh s tímom. Každý si zo zoznamu vyberie, s kým chce batohy sčítať, a tím môže mať spoločné ciele (napríklad 100 tinktúr) s prehľadom, koľko kto má, koľko spolu a koľko chýba.
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.4.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.5.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
@@ -34,6 +35,7 @@ Tím má v kalkulačke vlastnú kartu **Tím**, oddelenú od karty **Môj plán*
 5. **Spoločné ciele:** vyber položku (surovinu, medziprodukt alebo výrobok) a počet a klikni **Pridať cieľ**.
    - Pri výrobku (napríklad Zázračná tinktúra – 100 ks) je hore hlavný cieľ s celkovým percentom a hotovými kusmi. Pod ním sú suroviny potrebné na zvyšné kusy: potrebné, máme, chýba a progres v percentách.
    - Kto koľko prispel, je malým sivým písmom pod číslom (napríklad „Ja 30 · Peter 45“).
+   - **Kto hľadá:** pri surovine v cieli klikni **beriem** a ostatní uvidia tvoje meno, aby ju nehľadali dvaja. Opätovným kliknutím (**nechám**) ju uvoľníš. Vyžaduje tímový skript verzie 3.
    - Pri cieli je aj odhad hodín pre teba a pri výrobku tlačidlo **do plánu**, ktoré pridá chýbajúce kusy do tvojho plánu. Cieľ sa dá zbaliť kliknutím na jeho názov.
 
 Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „Tím – ciele“): pri otvorení kalkulačky najviac jedna požiadavka a ďalšie len po kliknutí. Na herný server tím neposiela nič.
@@ -54,6 +56,6 @@ Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „T
 
 ## Rozdiely oproti tabuľke
 
-Výsledky sú rovnaké ako v hárku Kalkulačka pre ten istý výrobok, nálezku a inventár. Navyše kalkulačka v hre vie spoločný plán viacerých výrobkov s jedným odpočtom batohu. Medziprodukty v batohu sa (rovnako ako v tabuľke) neodpočítavajú, kalkulačka ich iba ukáže.
+Výsledky sú rovnaké ako v hárku Kalkulačka pre ten istý výrobok, nálezku a inventár, kým v batohu nie sú hotové medziprodukty. Navyše kalkulačka v hre vie spoločný plán viacerých výrobkov s jedným odpočtom batohu a odpočíta aj hotové medziprodukty, čo tabuľka nerobí.
 
 Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry) ostáva v tabuľke, tento skript ho už nepoužíva. Časť Tím zapisuje do vlastných hárkov „Tím – batohy“ a „Tím – ciele“.
