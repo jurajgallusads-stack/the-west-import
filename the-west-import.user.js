@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – import do remeselnej kalkulačky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
+// @version      1.1.0
 // @description  Import nálezky, dostupných prác, strieborných pracovísk a inventára do remeselnej kalkulačky.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -24,6 +24,7 @@
 
   const game = unsafeWindow;
   const configKey = 'calculator-import';
+  const positionKey = 'import-button-position';
 
   // Poradie zodpovedá hárku Hráči (75 prác a 71 surovín).
   const jobProducts = [
@@ -54,31 +55,92 @@
   const ui = host.attachShadow({ mode: 'open' });
   ui.innerHTML = `
     <style>
-      :host { position: fixed; top: 72px; right: 16px; z-index: 2147483647; }
-      section { display: grid; justify-items: end; gap: 6px; font: 13px Arial, sans-serif; }
-      button { padding: 6px 10px; border: 1px solid #78512e; border-radius: 4px;
+      :host { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
+        z-index: 2147483647; font: 13px Arial, sans-serif; }
+      .toolbar { display: flex; align-items: stretch; gap: 2px; }
+      button, #grip { padding: 4px 7px; border: 1px solid #78512e; border-radius: 4px;
         background: #f6e9ce; color: #352416; cursor: pointer; }
       button:disabled { cursor: wait; opacity: .75; }
-      output { max-width: 300px; padding: 8px; background: #fff8e9; color: #352416;
-        border: 1px solid #78512e; border-radius: 4px; line-height: 1.4; }
+      #grip { cursor: grab; touch-action: none; user-select: none; }
+      #grip:active { cursor: grabbing; }
+      #details { position: absolute; bottom: calc(100% + 6px); box-sizing: border-box;
+        width: min(280px, calc(100vw - 16px)); padding: 8px; background: #fff8e9;
+        color: #352416; border: 1px solid #78512e; border-radius: 4px; line-height: 1.4; }
+      #details.below { top: calc(100% + 6px); bottom: auto; }
+      #dismiss { float: right; border: 0; background: transparent; padding: 0 4px; }
+      #copy { margin-top: 6px; }
       [hidden] { display: none; }
     </style>
-    <section>
+    <div class="toolbar">
       <button id="import" type="button">TW import</button>
-      <output id="status" aria-live="polite" hidden></output>
+      <span id="grip" title="Potiahni na presunutie tlačidla" aria-hidden="true">⠿</span>
+    </div>
+    <section id="details" hidden>
+      <button id="dismiss" type="button" aria-label="Zavrieť výsledok importu">×</button>
+      <output id="status" aria-live="polite"></output><br>
       <button id="copy" type="button" hidden>Kopírovať inventár</button>
     </section>
   `;
   document.body.appendChild(host);
 
   const importButton = ui.getElementById('import');
+  const grip = ui.getElementById('grip');
+  const details = ui.getElementById('details');
   const copyButton = ui.getElementById('copy');
   const status = ui.getElementById('status');
+  let savedPosition = GM_getValue(positionKey, null);
+  let drag;
   let lastInventory;
+
+  function alignDetails() {
+    if (details.hidden) return;
+    const { left, top, width } = host.getBoundingClientRect();
+    const panelWidth = details.offsetWidth;
+    const centered = left + (width - panelWidth) / 2;
+    const visibleLeft = Math.max(8, Math.min(centered, window.innerWidth - panelWidth - 8));
+    details.style.left = `${visibleLeft - left}px`;
+    details.classList.toggle('below', top < window.innerHeight / 2);
+  }
+
+  function place(position) {
+    if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
+      const x = Math.max(8, Math.min(position.x, window.innerWidth - host.offsetWidth - 8));
+      const y = Math.max(8, Math.min(position.y, window.innerHeight - host.offsetHeight - 8));
+      Object.assign(host.style, { left: `${x}px`, top: `${y}px`, bottom: 'auto', transform: 'none' });
+    }
+    alignDetails();
+  }
+
+  grip.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || drag) return;
+    const { left, top } = host.getBoundingClientRect();
+    drag = { id: event.pointerId, offsetX: event.clientX - left, offsetY: event.clientY - top };
+    grip.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  grip.addEventListener('pointermove', event => {
+    if (drag?.id !== event.pointerId) return;
+    place({ x: event.clientX - drag.offsetX, y: event.clientY - drag.offsetY });
+  });
+  grip.addEventListener('pointerup', event => {
+    if (drag?.id !== event.pointerId) return;
+    const { left, top } = host.getBoundingClientRect();
+    savedPosition = { x: left, y: top };
+    GM_setValue(positionKey, savedPosition);
+  });
+  grip.addEventListener('lostpointercapture', () => {
+    drag = undefined;
+  });
+  ui.getElementById('dismiss').addEventListener('click', () => {
+    details.hidden = true;
+  });
+  window.addEventListener('resize', () => place(savedPosition));
+  place(savedPosition);
 
   function show(message) {
     status.textContent = message;
-    status.hidden = false;
+    details.hidden = false;
+    alignDetails();
   }
 
   function configure() {
