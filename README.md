@@ -13,12 +13,12 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.3.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.4.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
-1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí vo voľnom mieste hry: pod horným panelom, nad dolným panelom a medzi postavou s chatom vľavo a minimapou, menu a prácami vpravo. Veľkosť sa prispôsobí oknu (desktop aj notebook) a pri zmene veľkosti okna sa prepočíta. Ak je obsah dlhší, posúva sa vnútri kalkulačky.
+1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí vo voľnom mieste hry: pod horným panelom, nad dolným panelom a medzi postavou s chatom vľavo a minimapou, menu a prácami vpravo. Veľkosť sa prispôsobí oknu (desktop aj notebook) a pri zmene veľkosti okna sa prepočíta. Ak je obsah dlhší, posúva sa vnútri kalkulačky. Okno môžeš chytiť myšou za hornú lištu a presunúť kamkoľvek na obrazovke. Poloha sa zapamätá, dvojklik na lištu ho vráti na automatické miesto.
 2. Pri prvom použití si oblečieš výbavu, v ktorej budeš robiť práce, a klikneš **Obnoviť nálezku**. Kalkulačka si uloží nálezku a dostupnosť prác pre túto postavu a svet.
 3. Vyber kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
