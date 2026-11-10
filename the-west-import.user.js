@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.2.0
+// @version      2.3.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -154,10 +154,10 @@
       toPlan: 'do plánu', toPlanTitle: 'Pridať chýbajúce kusy do plánu', addedToPlan: 'Chýbajúce kusy sú v pláne.',
       teamSynced: 'Tvoj batoh je zdieľaný a tím je načítaný.', teamLoaded: 'Tím je načítaný.', teamLoadedNoBag: 'Tím je načítaný. Tvoj batoh sa neposlal, lebo nie je načítaný – otvor v hre batoh.',
       teamFail: 'Spojenie s tímom zlyhalo. Skús to znova.', changeCode: 'Zmeniť tímový kód', loaded: 'Načítané',
-      players: 'Hráči, ktorí zdieľajú batoh – zaškrtni, s kým sčítať', nobody: 'Zatiaľ nikto ďalší nezdieľa svoj batoh.', updated: 'aktualizované',
+      players: 'Hráči, ktorí zdieľajú batoh – zaškrtni, koho rátať do cieľov', nobody: 'Zatiaľ nikto ďalší nezdieľa svoj batoh.', updated: 'aktualizované',
       goals: 'Spoločné ciele', noGoals: 'Zatiaľ žiadny spoločný cieľ.', item: 'Položka', goalTarget: 'Cieľ', me: 'Ja', sum: 'Spolu',
       addGoal: 'Pridať cieľ', delGoal: 'Zmazať cieľ', goalAdded: 'Cieľ je pridaný.', goalDeleted: 'Cieľ je zmazaný.', myHours: h => `≈ ${h} h pre mňa`,
-      haveTeam: 'V batohu (tím)', raws: 'Suroviny', inters: 'Medziprodukty', products: 'Výrobky',
+      haveTeam: 'V batohu (tím)', myPlan: 'Môj plán', pcs: 'ks', doneItems: 'hotové', teamHas: 'Máme', progress: 'Progres', nobodyHas: 'zatiaľ nikto', raws: 'Suroviny', inters: 'Medziprodukty', products: 'Výrobky',
       goalsNote: 'Počíta sa tvoj batoh a zaškrtnutí hráči. Ciele vidí celý tím.', by: 'zadal'
     },
     cz: {
@@ -187,10 +187,10 @@
       toPlan: 'do plánu', toPlanTitle: 'Přidat chybějící kusy do plánu', addedToPlan: 'Chybějící kusy jsou v plánu.',
       teamSynced: 'Tvůj batoh je sdílený a tým je načtený.', teamLoaded: 'Tým je načtený.', teamLoadedNoBag: 'Tým je načtený. Tvůj batoh se neposlal, protože není načtený – otevři ve hře batoh.',
       teamFail: 'Spojení s týmem selhalo. Zkus to znovu.', changeCode: 'Změnit týmový kód', loaded: 'Načteno',
-      players: 'Hráči, kteří sdílejí batoh – zaškrtni, s kým sčítat', nobody: 'Zatím nikdo další nesdílí svůj batoh.', updated: 'aktualizováno',
+      players: 'Hráči, kteří sdílejí batoh – zaškrtni, koho počítat do cílů', nobody: 'Zatím nikdo další nesdílí svůj batoh.', updated: 'aktualizováno',
       goals: 'Společné cíle', noGoals: 'Zatím žádný společný cíl.', item: 'Položka', goalTarget: 'Cíl', me: 'Já', sum: 'Celkem',
       addGoal: 'Přidat cíl', delGoal: 'Smazat cíl', goalAdded: 'Cíl je přidaný.', goalDeleted: 'Cíl je smazaný.', myHours: h => `≈ ${h} h pro mě`,
-      haveTeam: 'V batohu (tým)', raws: 'Suroviny', inters: 'Meziprodukty', products: 'Výrobky',
+      haveTeam: 'V batohu (tým)', myPlan: 'Můj plán', pcs: 'ks', doneItems: 'hotovo', teamHas: 'Máme', progress: 'Postup', nobodyHas: 'zatím nikdo', raws: 'Suroviny', inters: 'Meziprodukty', products: 'Výrobky',
       goalsNote: 'Počítá se tvůj batoh a zaškrtnutí hráči. Cíle vidí celý tým.', by: 'zadal'
     }
   };
@@ -463,21 +463,6 @@
     return data.players.filter(p => p.id !== ch.id && selected.has(p.id));
   }
 
-  // Batoh pre výpočet: môj batoh z hry plus batohy zaškrtnutých spoluhráčov.
-  function combinedBag(ch) {
-    const mine = bagReader();
-    const others = teammates(ch);
-    if (!others.length) return mine;
-    return id => (mine ? mine(id) : 0) + others.reduce((sum, p) => sum + (Number(p.inv?.[id]) || 0), 0);
-  }
-
-  function bagBreakdown(ch, id) {
-    const mine = bagReader();
-    const parts = [`${t('me')}: ${mine ? fmt(mine(id)) : '?'}`];
-    for (const p of teammates(ch)) parts.push(`${p.name}: ${fmt(Number(p.inv?.[id]) || 0)}`);
-    return parts.join(', ');
-  }
-
   // ---------- Rozhranie ----------
   const host = document.createElement('div');
   const ui = host.attachShadow({ mode: 'open' });
@@ -536,13 +521,34 @@
       summary { cursor: pointer; font-weight: bold; }
       .job small { display: block; color: #7a4e2d; }
       footer { padding: 0 12px 10px; }
-      #teambox summary { margin: -2px 0; }
       #team { margin-top: 8px; }
       #team .players { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 10px; }
       #team .players label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
       #team h4 { margin: 10px 0 4px; font-size: 13px; }
       #team .goaladd { margin-top: 8px; }
       #team .share { margin-bottom: 8px; cursor: pointer; }
+      .tabs { display: flex; gap: 4px; padding: 6px 12px 0; background: #f4e8cc; border-bottom: 2px solid #4a2f17; }
+      .tabs button { border: 2px solid #4a2f17; border-bottom: 0; border-radius: 5px 5px 0 0; padding: 5px 14px; cursor: pointer;
+        background: #e8dcc0; color: #4a2f17; font-weight: bold; }
+      .tabs button[aria-selected="true"] { background: #4a2f17; color: #f2dfa7; }
+      details.goal > summary { list-style: none; cursor: pointer; font-weight: normal; }
+      details.goal > summary::-webkit-details-marker { display: none; }
+      details.goal > summary .goalhead b:first-child::before { content: '▸ '; color: #7a4e2d; }
+      details.goal[open] > summary .goalhead b:first-child::before { content: '▾ '; }
+      table.comp td { padding: 2px 6px; }
+      .goal { background: #fbf4e4; border: 1px solid #d6c298; border-radius: 4px; padding: 8px 10px; margin: 8px 0; }
+      .goalhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+      .goalhead .pct { font: bold 15px Georgia, serif; color: #7a4e2d; }
+      .bar { display: block; height: 7px; background: #e8dcc0; border-radius: 4px; overflow: hidden; margin: 5px 0 2px; }
+      .bar i { display: block; height: 100%; background: #b0793f; }
+      .bar.done i { background: #3f8a3f; }
+      td.prog { min-width: 90px; }
+      td.prog .bar { margin: 2px 0 0; }
+      td.prog small { color: #7a4e2d; font-size: 10px; }
+      small.who { display: block; color: #8a7a62; font-size: 10px; font-weight: normal; line-height: 1.2; }
+      table.comp { margin-top: 6px; }
+      table.comp th { background: #7a4e2d; }
+      table.comp tr.ok td.miss { color: #276b27; }
       #goalitem { min-width: 220px; }
       .link { border: 0; background: transparent; color: #7a4e2d; text-decoration: underline; cursor: pointer; padding: 0; }
       td.ok { color: #276b27; font-weight: bold; }
@@ -574,14 +580,19 @@
         <button type="button" data-lang="cz">CZ</button>
         <button id="close" type="button">×</button>
       </header>
+      <nav class="tabs" role="tablist">
+        <button id="tabplan" type="button" role="tab" data-tab="plan"></button>
+        <button id="tabteam" type="button" role="tab" data-tab="team"></button>
+      </nav>
       <div class="body">
+        <div id="bagwarn" class="card warn" hidden></div>
+        <div id="pane-team" hidden><div id="team"></div></div>
+        <div id="pane-plan">
         <div class="card row">
           <span id="who" class="grow"></span>
           <button id="refresh" class="btn" type="button"></button>
         </div>
         <div id="message" class="muted" aria-live="polite"></div>
-        <div id="bagwarn" class="card warn" hidden></div>
-        <details id="teambox" class="card"><summary id="teamsum"></summary><div id="team"></div></details>
         <div class="card row">
           <label><span id="lcat"></span><br><select id="category"></select></label>
           <label class="grow"><span id="lprod"></span><br><select id="product"></select></label>
@@ -591,6 +602,7 @@
         <div id="plan" class="card"></div>
         <div id="summary" class="sum"></div>
         <div id="results"></div>
+        </div>
       </div>
       <footer id="foot" class="muted"></footer>
     </section>
@@ -692,10 +704,10 @@
     const warn = $('bagwarn');
     warn.hidden = !!own;
     warn.textContent = t('bagMissing');
-    const teamOn = teammates(ch).length > 0;
-    const bag = combinedBag(ch);
-    const haveTitle = id => (teamOn ? ` title="${escapeHtml(bagBreakdown(ch, id))}"` : '');
-    const haveLabel = teamOn ? t('haveTeam') : t('have');
+    // Môj plán ráta iba môj batoh; tímové batohy sú na karte Tím.
+    const bag = own;
+    const haveTitle = () => '';
+    const haveLabel = t('have');
 
     const result = Calc.plan(entries.map(([id, qty]) => ({ id, qty })), store, level, bag);
     const sum = $('summary');
@@ -769,6 +781,7 @@
     day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
+  const closedGoals = new Set();
   function renderTeam() {
     const ch = character();
     const config = teamConfig();
@@ -777,8 +790,7 @@
     const others = (data?.players || []).filter(p => !ch || p.id !== ch.id);
     const selected = new Set(ch ? loadSel(ch) : []);
     const chosen = others.filter(p => selected.has(p.id));
-    $('teamsum').innerHTML = `<b>${t('team')}</b>` + (chosen.length
-      ? ` <span class="muted">(${escapeHtml([t('me'), ...chosen.map(p => p.name)].join(' + '))})</span>` : '');
+    $('tabteam').textContent = t('team') + (chosen.length ? ` (${chosen.length + 1})` : '');
     const msg = teamMessage.text
       ? `<div class="${teamMessage.error ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(teamMessage.text)}</div>` : '';
     if (!config) {
@@ -794,30 +806,67 @@
 
     const own = bagReader();
     const store = ch ? loadStore(ch) : null;
+    const people = [{ name: t('me'), count: id => (own ? own(id) : 0) },
+      ...chosen.map(p => ({ name: p.name, count: id => Number(p.inv?.[id]) || 0 }))];
+    const pct = (have, need) => (need > 0 ? Math.min(1, have / need) : 1);
+    const bar = f => `<span class="bar ${f >= 1 ? 'done' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`;
+    const pctText = f => `${Math.floor(f * 100)} %`;
+    // Kto koľko prispel: malým sivým písmom, iba nenulové počty.
+    const who = id => {
+      const parts = people.map(p => [p.name, p.count(id)]).filter(([, n]) => n > 0);
+      return parts.length ? `<small class="who">${parts.map(([n, c]) => `${escapeHtml(n)} ${fmt(c)}`).join(' · ')}</small>` : '';
+    };
+    const teamHave = id => people.reduce((sum, p) => sum + p.count(id), 0);
+    const myHoursFor = (id, missing) => {
+      if (!ch || missing <= 0 || !DATA.raws[id]) return 0;
+      return Calc.hoursFor(missing, Calc.bestJob(id, store, ch.level).rate) ?? 0;
+    };
+
     const goals = (data?.goals || []).filter(g => DATA.items[g.item]);
-    const goalRows = goals.map(g => {
-      const mine = own ? own(g.item) : null;
-      const counts = chosen.map(p => Number(p.inv?.[g.item]) || 0);
-      const total = (mine || 0) + counts.reduce((a, b) => a + b, 0);
-      const missing = Math.max(0, g.target - total);
-      let hint = '';
-      if (missing > 0 && DATA.raws[g.item] && ch) {
-        const h = Calc.hoursFor(missing, Calc.bestJob(g.item, store, ch.level).rate);
-        if (h !== null) hint = ` <small class="muted">${escapeHtml(T[lang].myHours(fmtHours(h)))}</small>`;
+    const goalCards = goals.map(g => {
+      const product = Calc.product(g.item);
+      const done = teamHave(g.item);
+      const del = `<button class="x" type="button" data-goaldel="${escapeHtml(g.id)}" title="${t('delGoal')}" aria-label="${t('delGoal')}">×</button>`;
+      if (!product) {
+        const missing = Math.max(0, g.target - done);
+        const f = pct(done, g.target);
+        const h = myHoursFor(g.item, missing);
+        return `<div class="goal">
+          <div class="goalhead"><b>${escapeHtml(nameOf(g.item))}</b>
+            <span class="muted">${fmt(done)} / ${fmt(g.target)} ${t('pcs')}${missing ? ` · ${t('miss').toLowerCase()} ${fmt(missing)}` : ''}${h ? ` · ${escapeHtml(T[lang].myHours(fmtHours(h)))}` : ''}</span>
+            <span class="grow"></span><b class="pct">${pctText(f)}</b>${del}</div>
+          ${bar(f)}${who(g.item)}</div>`;
       }
-      return `<tr><td title="${t('by')}: ${escapeHtml(g.by)}">${escapeHtml(nameOf(g.item))}</td>
-        <td class="n">${fmt(g.target)}</td>
-        <td class="n">${mine === null ? '?' : fmt(mine)}</td>
-        ${counts.map(c => `<td class="n">${fmt(c)}</td>`).join('')}
-        <td class="n"><b>${fmt(total)}</b></td>
-        <td class="n ${missing ? 'miss' : 'ok'}">${missing ? fmt(missing) : '✓'}${hint}${missing && Calc.product(g.item)
-          ? ` <button class="link" type="button" data-toplan="${g.item}" data-missing="${missing}" title="${t('toPlanTitle')}">${t('toPlan')}</button>` : ''}</td>
-        <td class="n"><button class="x" type="button" data-goaldel="${escapeHtml(g.id)}" title="${t('delGoal')}" aria-label="${t('delGoal')}">×</button></td></tr>`;
+      // Výrobok: hlavný cieľ a pod ním suroviny na zvyšné kusy (ako v pláne).
+      const remaining = Math.max(0, g.target - done);
+      const comps = product.raw.map(([id, q]) => {
+        const need = q * remaining;
+        const have = teamHave(id);
+        return { id, need, have, missing: Math.max(0, need - have), f: pct(have, need) };
+      }).sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
+      const needSum = comps.reduce((s, c) => s + c.need, 0);
+      const rawFrac = needSum ? comps.reduce((s, c) => s + Math.min(c.have, c.need), 0) / needSum : 1;
+      const f = g.target ? Math.min(1, (Math.min(done, g.target) + remaining * rawFrac) / g.target) : 1;
+      const hours = comps.reduce((s, c) => s + myHoursFor(c.id, c.missing), 0);
+      const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
+          <td>${escapeHtml(nameOf(c.id))}</td>
+          <td class="n">${fmt(c.need)}</td>
+          <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
+          <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
+          <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td></tr>`).join('');
+      const open = !closedGoals.has(g.id);
+      return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
+        <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
+          <span class="muted">${t('doneItems')} ${fmt(done)}${hours ? ` · ${escapeHtml(T[lang].myHours(fmtHours(hours)))}` : ''}</span>
+          <span class="grow"></span><b class="pct">${pctText(f)}</b>
+          ${remaining ? `<button class="link" type="button" data-toplan="${g.item}" data-missing="${remaining}" title="${t('toPlanTitle')}">${t('toPlan')} (${fmt(remaining)})</button>` : ''}${del}</div>
+        ${bar(f)}${who(g.item)}</summary>
+        ${remaining ? `<table class="comp"><thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th>
+          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : ''}
+      </details>`;
     }).join('');
-    const goalTable = goals.length ? `<table><thead><tr><th>${t('item')}</th><th class="n">${t('goalTarget')}</th>
-        <th class="n">${t('me')}</th>${chosen.map(p => `<th class="n">${escapeHtml(p.name)}</th>`).join('')}
-        <th class="n">${t('sum')}</th><th class="n">${t('miss')}</th><th></th></tr></thead><tbody>${goalRows}</tbody></table>`
-      : `<div class="muted">${t('noGoals')}</div>`;
+    const goalTable = goals.length ? goalCards : `<div class="muted">${t('noGoals')}</div>`;
 
     const shared = ch ? GM_getValue(sharedKey(ch), null) : null;
     const shareOn = ch ? sharing(ch) : false;
@@ -844,6 +893,14 @@
       </div>`;
   }
 
+  let tab = GM_getValue('tab', 'plan');
+  function renderTabs() {
+    $('tabplan').textContent = t('myPlan');
+    for (const b of ui.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    $('pane-plan').hidden = tab !== 'plan';
+    $('pane-team').hidden = tab !== 'team';
+  }
+
   function renderLabels() {
     $('title').textContent = t('title');
     $('close').title = t('close');
@@ -867,6 +924,7 @@
     renderPlan();
     renderTeam();
     renderResults();
+    renderTabs();
   }
 
   function L() { return lang === 'sk' ? 0 : 1; }
@@ -1012,6 +1070,12 @@
       renderResults();
     }
   });
+  $('team').addEventListener('toggle', event => {
+    const id = event.target.dataset?.goal;
+    if (id === undefined) return;
+    if (event.target.open) closedGoals.delete(id);
+    else closedGoals.add(id);
+  }, true);
   $('team').addEventListener('change', event => {
     if (event.target.dataset?.share !== undefined) {
       const ch = character();
@@ -1031,7 +1095,13 @@
     renderTeam();
     renderResults();
   });
-  if (teamConfig()) $('teambox').open = true;
+  for (const b of ui.querySelectorAll('[data-tab]')) {
+    b.addEventListener('click', () => {
+      tab = b.dataset.tab;
+      GM_setValue('tab', tab);
+      renderTabs();
+    });
+  }
   for (const b of ui.querySelectorAll('[data-lang]')) {
     b.addEventListener('click', () => {
       lang = b.dataset.lang;
