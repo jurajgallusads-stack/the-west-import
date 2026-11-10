@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.7.1
+// @version      2.7.2
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -138,7 +138,7 @@
       return { hours: result.hours, unavailable: result.unavailable };
     }
 
-    return { rateFor, bestJob, hoursFor, plan, perPiece, product };
+    return { rateFor, bestJob, hoursFor, plan, perPiece, product, explode };
   })();
 
   // ---------- Všetky recepty z hry (z už načítaných údajov klienta, žiadna požiadavka) ----------
@@ -233,7 +233,7 @@
       total: 'Spolu', missingLv: n => `chýba ${n}`,
       raw: 'Surovina', need: 'Potrebné', have: 'V batohu', miss: 'Chýba', job: 'Vhodná práca', chance: 'Isté ks / h',
       noJob: 'nedostupná', viaPoints: 'odomknutá pracovnými bodmi', level: 'level',
-      inter: 'Medziprodukty', craft: 'Vyrobiť', interNote: 'Hotové medziprodukty z batoha sa použijú a suroviny sa rátajú iba na tie, ktoré treba vyrobiť.',
+      inter: 'Medziprodukty', interOne: 'medziprodukt', craft: 'Vyrobiť', interNote: 'Hotové medziprodukty z batoha sa použijú a suroviny sa rátajú iba na tie, ktoré treba vyrobiť.',
       prof: 'Remeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, tlačidlo – ho zbalí, dvojklik na lištu ho vráti na pôvodné miesto.`,
       baseNote: 'odhad zo základnej šance',
@@ -266,7 +266,7 @@
       total: 'Celkem', missingLv: n => `chybí ${n}`,
       raw: 'Surovina', need: 'Potřebné', have: 'V batohu', miss: 'Chybí', job: 'Vhodná práce', chance: 'Jisté ks / h',
       noJob: 'nedostupná', viaPoints: 'odemčená pracovními body', level: 'level',
-      inter: 'Meziprodukty', craft: 'Vyrobit', interNote: 'Hotové meziprodukty z batohu se použijí a suroviny se počítají jen na ty, které je třeba vyrobit.',
+      inter: 'Meziprodukty', interOne: 'meziprodukt', craft: 'Vyrobit', interNote: 'Hotové meziprodukty z batohu se použijí a suroviny se počítají jen na ty, které je třeba vyrobit.',
       prof: 'Řemeslo',
       foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, tlačítko – ho sbalí, dvojklik na lištu ho vrátí na původní místo.`,
       baseNote: 'odhad ze základní šance',
@@ -611,6 +611,7 @@
       tr.na td { background: #f8d6da; }
       td.miss { color: #9c3d1e; font-weight: bold; }
       tr.ok td.miss { color: #276b27; }
+      .tag { font-size: 11px; color: #8a7558; font-style: italic; }
       tfoot td { background: #d9b45a; font-weight: bold; border-top: 2px solid #4a2f17; }
       .sum { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
       .sum div { flex: 1; min-width: 140px; background: #fbf4e4; border: 2px solid #4a2f17; border-radius: 4px; padding: 6px 10px; }
@@ -971,24 +972,33 @@
             <span class="grow"></span><b class="pct">${pctText(f)}</b>${del}</div>
           ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>`;
       }
-      // Výrobok: hlavný cieľ a pod ním suroviny na zvyšné kusy (ako v pláne).
+      // Výrobok: hlavný cieľ a pod ním medziprodukty a suroviny na zvyšné kusy (ako v pláne).
+      // Hotové medziprodukty tímu sa použijú prednostne, suroviny sa rátajú iba na tie, ktoré treba vyrobiť.
       const remaining = Math.max(0, g.target - done);
-      const comps = product.raw.map(([id, q]) => {
-        const need = q * remaining;
+      const entries = [{ id: g.item, qty: remaining }];
+      const full = Calc.explode(entries, null).rawNeed;
+      const { rawNeed, inter } = Calc.explode(entries, teamHave);
+      const byName = (a, b) => nameOf(a.id).localeCompare(nameOf(b.id));
+      const interRows = inter.map(x => ({ id: x.id, inter: true, need: x.need, have: x.have, missing: x.craft, f: pct(x.have, x.need) }))
+        .sort(byName);
+      const rawRows = [...rawNeed].map(([id, need]) => {
         const have = teamHave(id);
         return { id, need, have, missing: Math.max(0, need - have), f: pct(have, need) };
-      }).sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
-      const needSum = comps.reduce((s, c) => s + c.need, 0);
-      const rawFrac = needSum ? comps.reduce((s, c) => s + Math.min(c.have, c.need), 0) / needSum : 1;
+      }).sort(byName);
+      const comps = [...interRows, ...rawRows];
+      // Progres: aká časť surovín na zvyšné kusy je pokrytá (zásobou surovín alebo hotovými medziproduktmi).
+      const fullSum = [...full.values()].reduce((a, n) => a + n, 0);
+      const missSum = rawRows.reduce((a, c) => a + c.missing, 0);
+      const rawFrac = fullSum ? Math.max(0, 1 - missSum / fullSum) : 1;
       const f = g.target ? Math.min(1, (Math.min(done, g.target) + remaining * rawFrac) / g.target) : 1;
-      const hours = comps.reduce((s, c) => s + myHoursFor(c.id, c.missing), 0);
+      const hours = rawRows.reduce((a, c) => a + myHoursFor(c.id, c.missing), 0);
       const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
-          <td>${escapeHtml(nameOf(c.id))}</td>
+          <td>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</td>
           <td class="n">${fmt(c.need)}</td>
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
           <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td>
-          ${Array.isArray(claims) ? `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
+          ${Array.isArray(claims) ? `<td>${c.missing && !c.inter ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
       const open = !closedGoals.has(g.id);
       return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
