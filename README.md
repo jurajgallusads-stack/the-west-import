@@ -46,11 +46,24 @@ Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „T
 
 Predaj je samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-predaj.user.js). Inštaluje sa rovnako cez Tampermonkey. Má vlastnú ikonu **$** v rade posilňovačov a vlastné okno, ktoré sa presúva, zbaľuje a prekrýva s hernými oknami ako kalkulačka.
 
-- Ukáže veci z batoha, ktoré nepotrebuješ, s predajnou cenou a celkovou sumou. Zoznam sa zostaví z už načítaného batoha bez požiadavky na server a sám sa prepočíta, keď sa batoh zmení.
-- Nikdy sa neponúka: oblečenie na sebe, predmety zo sád (napríklad sada bojovníka z truhiel), pomenované predmety (napríklad Athosov fleret), vylepšené predmety, všetko k remeslám (suroviny, medziprodukty a výrobky zo všetkých receptov v hre), použiteľné predmety (nápoje a jedlo), recepty, zvieratá, zbierky, úlohové a nepredajné predmety.
+- Predáva iba oblečenie a zbrane. **Produkty sa nepredávajú vôbec.**
+- Záložky podľa časti oblečenia: Všetko, Klobúky, Šatky, Oblečenie, Opasky, Nohavice, Topánky, Duelové zbrane a Zbrane do pevnosti. Pri každej je počet kusov. Prázdne záložky sa skrývajú.
+- Zoznam sa zostaví z už načítaného batoha bez požiadavky na server a sám sa prepočíta, keď sa batoh zmení.
+- Nikdy sa neponúka:
+  - oblečenie na sebe;
+  - predmety zo sád (napríklad sada bojovníka z truhiel);
+  - pomenované predmety (napríklad Athosov fleret);
+  - vylepšené predmety;
+  - remeselné, úlohové a nepredajné predmety.
+- **Najlepšie kusy:** v každej časti oblečenia sa ponechá kus, ktorý dáva:
+  - najviac **HP** (zdravie + sila);
+  - najlepšiu **jazdu na koni** (jazda + obratnosť vrátane bonusov za level);
+  - najvyššiu **rýchlosť** (napríklad +100 % Rýchlosť).
+
+  Porovnáva sa batoh aj oblečenie na sebe. Ak je najlepší kus ten, ktorý máš na sebe, z batoha sa nechráni nič. Pod zoznamom je vypísané, čo sa ponechalo ako najlepšie.
 - Ak si v hre otvoril **Šatník**, neponúka sa ani oblečenie z tvojich uložených sád. Inak ťa na to skript upozorní.
 - Odškrtnutá vec sa tentoraz nepredá. Tlačidlom **nepredávať** ju vylúčiš natrvalo (zoznam sa dá vymazať).
-- **Predať** pri položke predá celý kus alebo stoh obchodníkovi. **Predať označené** predá všetko označené. Vždy sa najprv pýta na potvrdenie, lebo predaj sa nedá vrátiť.
+- **Predať** pri položke predá celý kus alebo stoh obchodníkovi. **Predať označené v záložke** predá všetko označené v otvorenej záložke. Vždy sa najprv pýta na potvrdenie, lebo predaj sa nedá vrátiť.
 - Každá predaná položka je jedna požiadavka na server, rovnako ako pri predaji v hre. Pri „Predať označené“ idú postupne, jedna za 1,2 sekundy, a dajú sa zastaviť. Pri chybe obchodníka sa predaj zastaví.
 
 ## Zaťaženie herného servera

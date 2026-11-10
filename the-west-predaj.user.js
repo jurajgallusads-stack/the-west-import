@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
-// @description  Zoznam vecí z batoha, ktoré nepotrebuješ, s cenou. Sady, pomenované, vylepšené a remeselné veci sa neponúkajú. Predaj obchodníkovi po potvrdení.
+// @version      1.1.0
+// @description  Zoznam oblečenia a zbraní z batoha, ktoré nepotrebuješ, po záložkách a s cenou. Sady, pomenované, vylepšené a najlepšie kusy na HP a rýchlosť sa neponúkajú. Produkty sa nepredávajú. Predaj obchodníkovi po potvrdení.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
 // @run-at       document-idle
@@ -25,10 +25,12 @@
   const T = {
     sk: {
       title: 'Predaj nepotrebných vecí', icon: 'Predaj nepotrebných vecí', close: 'Zavrieť', minimize: 'Minimalizovať', restore: 'Obnoviť okno',
-      intro: 'Veci z batoha, ktoré nepotrebuješ. Neponúkajú sa sady, pomenované a vylepšené predmety, všetko k remeslám (suroviny, medziprodukty, výrobky), použiteľné predmety, recepty, zvieratá, zbierky a úlohové predmety. Oblečenie na sebe sa nepredáva. Odškrtnutá vec sa tentoraz nepredá, tlačidlom „nepredávať“ ju vylúčiš natrvalo.',
+      intro: 'Oblečenie a zbrane z batoha, ktoré nepotrebuješ. Produkty sa nepredávajú vôbec. Neponúkajú sa sady, pomenované a vylepšené predmety ani v každej časti oblečenia kus s najviac HP, s najlepšou jazdou na koni (jazda + obratnosť) a s najvyššou rýchlosťou. Oblečenie na sebe sa nepredáva. Odškrtnutá vec sa tentoraz nepredá, tlačidlom „nepredávať“ ju vylúčiš natrvalo.',
+      all: 'Všetko', slots: { head: 'Klobúky', neck: 'Šatky', body: 'Oblečenie', belt: 'Opasky', pants: 'Nohavice', foot: 'Topánky', right_arm: 'Duelové zbrane', left_arm: 'Zbrane do pevnosti' },
+      best: 'Ponechané ako najlepšie', bestHp: 'najviac HP', bestRide: 'najlepšia jazda', bestSpeed: 'najvyššia rýchlosť',
       bagMissing: 'Batoh ešte nie je načítaný. Otvor v hre batoh (inventár) a zoznam sa zobrazí.',
       wait: 'Počkaj, kým sa načíta herný svet.',
-      total: 'Na predaj', selected: 'Označené', sellAll: 'Predať označené', sellOne: 'Predať', stop: 'Zastaviť',
+      total: 'Na predaj', selected: 'Označené', sellAll: 'Predať označené v záložke', sellOne: 'Predať', stop: 'Zastaviť',
       confirmAll: (n, sum) => `Predať obchodníkovi označené položky (${n}) za ${sum}? Predaj sa nedá vrátiť. Každá položka je jedna požiadavka na server, posielajú sa postupne.`,
       confirmOne: (name, n, sum) => `Predať ${name} (${n} ks) obchodníkovi za ${sum}? Predaj sa nedá vrátiť.`,
       selling: (i, n) => `Predávam ${i} / ${n}…`, sold: (n, sum) => `Predané položky: ${n}, spolu ${sum}.`, fail: 'Predaj sa nepodaril:',
@@ -38,14 +40,16 @@
       equipHint: 'Tip: otvor v hre Šatník (uložené sady oblečenia). Potom sa nebude ponúkať oblečenie z tvojich sád, napríklad sada na nálezku.',
       equipKnown: n => `Oblečenie z ${n} uložených sád sa nepredáva.`,
       why: { keep: 'nepredávať', named: 'pomenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úlohy', nosell: 'nepredajné',
-        recipe: 'recepty', animal: 'zvieratá', collection: 'zbierky', craft: 'remeslo', equip: 'v sadách', usable: 'použiteľné', other: 'ostatné' }
+        goods: 'produkty a ostatné', craft: 'remeslo', equip: 'v sadách', hp: 'najviac HP', ride: 'najlepšia jazda', speed: 'najvyššia rýchlosť' }
     },
     cz: {
       title: 'Prodej nepotřebných věcí', icon: 'Prodej nepotřebných věcí', close: 'Zavřít', minimize: 'Minimalizovat', restore: 'Obnovit okno',
-      intro: 'Věci z batohu, které nepotřebuješ. Nenabízejí se sady, pojmenované a vylepšené předměty, vše k řemeslům (suroviny, meziprodukty, výrobky), použitelné předměty, recepty, zvířata, sbírky a úkolové předměty. Oblečení na sobě se neprodává. Odškrtnutá věc se tentokrát neprodá, tlačítkem „neprodávat“ ji vyloučíš natrvalo.',
+      intro: 'Oblečení a zbraně z batohu, které nepotřebuješ. Produkty se neprodávají vůbec. Nenabízejí se sady, pojmenované a vylepšené předměty ani v každé části oblečení kus s nejvíce HP, s nejlepší jízdou na koni (jízda + obratnost) a s nejvyšší rychlostí. Oblečení na sobě se neprodává. Odškrtnutá věc se tentokrát neprodá, tlačítkem „neprodávat“ ji vyloučíš natrvalo.',
+      all: 'Vše', slots: { head: 'Klobouky', neck: 'Šátky', body: 'Oblečení', belt: 'Opasky', pants: 'Kalhoty', foot: 'Boty', right_arm: 'Duelové zbraně', left_arm: 'Zbraně do pevnosti' },
+      best: 'Ponechané jako nejlepší', bestHp: 'nejvíce HP', bestRide: 'nejlepší jízda', bestSpeed: 'nejvyšší rychlost',
       bagMissing: 'Batoh ještě není načtený. Otevři ve hře batoh (inventář) a seznam se zobrazí.',
       wait: 'Počkej, než se načte herní svět.',
-      total: 'Na prodej', selected: 'Označené', sellAll: 'Prodat označené', sellOne: 'Prodat', stop: 'Zastavit',
+      total: 'Na prodej', selected: 'Označené', sellAll: 'Prodat označené v záložce', sellOne: 'Prodat', stop: 'Zastavit',
       confirmAll: (n, sum) => `Prodat obchodníkovi označené položky (${n}) za ${sum}? Prodej nejde vrátit. Každá položka je jeden požadavek na server, posílají se postupně.`,
       confirmOne: (name, n, sum) => `Prodat ${name} (${n} ks) obchodníkovi za ${sum}? Prodej nejde vrátit.`,
       selling: (i, n) => `Prodávám ${i} / ${n}…`, sold: (n, sum) => `Prodané položky: ${n}, celkem ${sum}.`, fail: 'Prodej se nepovedl:',
@@ -55,7 +59,7 @@
       equipHint: 'Tip: otevři ve hře Šatník (uložené sady oblečení). Pak se nebude nabízet oblečení z tvých sad, například sada na nález.',
       equipKnown: n => `Oblečení z ${n} uložených sad se neprodává.`,
       why: { keep: 'neprodávat', named: 'pojmenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úkoly', nosell: 'neprodejné',
-        recipe: 'recepty', animal: 'zvířata', collection: 'sbírky', craft: 'řemeslo', equip: 'v sadách', usable: 'použitelné', other: 'ostatní' }
+        goods: 'produkty a ostatní', craft: 'řemeslo', equip: 'v sadách', hp: 'nejvíce HP', ride: 'nejlepší jízda', speed: 'nejvyšší rychlost' }
     }
   };
   let lang = GM_getValue(P + 'lang', 'sk');
@@ -72,7 +76,62 @@
   const keepKey = ch => `${P}keep:${ch.key}`;
 
   // ---------- Čo predať (všetko z údajov, ktoré hra už má načítané: 0 požiadaviek) ----------
-  const GEAR = new Set(['head', 'neck', 'body', 'belt', 'pants', 'foot', 'right_arm', 'left_arm']);
+  const SLOTS = ['head', 'neck', 'body', 'belt', 'pants', 'foot', 'right_arm', 'left_arm'];
+  const GEAR = new Set(SLOTS);
+
+  // Hodnota bonusu predmetu pre postavu: priamy bonus + bonus za level postavy (+ vylepšenie predmetu).
+  const STATS = {
+    hp: { skill: 'health', attr: 'strength' },      // HP: zdravie, sila zvyšuje aj zdravie
+    ride: { skill: 'ride', attr: 'flexibility' },   // jazda na koni, obratnosť zvyšuje aj jazdu
+    speed: 'speed'                                  // rýchlosť v % (napríklad +100 % Rýchlosť)
+  };
+  function statValue(o, stat, level) {
+    const b = o?.bonus || {};
+    let v = 0;
+    if (stat === 'speed') {
+      for (const e of b.item || []) if (e?.type === 'speed') v += Number(e.value) || 0;
+      return v;
+    }
+    v += Number(b.skills?.[stat.skill]) || 0;
+    v += Number(b.attributes?.[stat.attr]) || 0;
+    for (const e of b.item || []) {
+      const inner = e?.type === 'character' ? e.bonus : e;
+      if (!inner) continue;
+      const hit = (inner.type === 'skill' && inner.name === stat.skill) || (inner.type === 'attribute' && inner.name === stat.attr);
+      if (!hit) continue;
+      let val = Number(inner.value) || 0;
+      if (e.type === 'character' && e.key === 'level') {
+        const round = Math[e.roundingMethod] || Math.ceil;
+        val = round(val * level);
+      }
+      v += val;
+    }
+    const lvl = Number(o.item_level) || 0;
+    if (lvl && v && typeof game.ItemManager?.calculateItemLevelBonus === 'function') {
+      try { v += Number(game.ItemManager.calculateItemLevelBonus(lvl, v)) || 0; } catch { /* bez vylepšenia */ }
+    }
+    return v;
+  }
+
+  // Najlepšie kusy v každej časti oblečenia (z batoha aj z toho, čo máš na sebe).
+  function bestItems(bagItems) {
+    const level = Number(game.Character?.level) || 1;
+    const pool = bagItems.map(it => it.obj);
+    try {
+      for (const w of Object.values(game.Wear?.wear || {})) if (w?.obj) pool.push(w.obj);
+    } catch { /* bez oblečenia na sebe */ }
+    const best = new Map(); // item_id -> 'hp' | 'ride' | 'speed'
+    for (const slot of SLOTS) {
+      const items = pool.filter(o => o?.type === slot);
+      for (const [key, stat] of Object.entries(STATS)) {
+        const values = items.map(o => [o.item_id, statValue(o, stat, level)]);
+        const max = Math.max(0, ...values.map(([, v]) => v));
+        if (max <= 0) continue;
+        for (const [id, v] of values) if (v === max && !best.has(id)) best.set(id, key);
+      }
+    }
+    return best;
+  }
   const SELL_GAP_MS = 1200;
 
   // Všetko, čo súvisí s remeslami: výrobky receptov a ich suroviny (z receptov v ItemManageri).
@@ -106,6 +165,7 @@
   }
 
   function reason(o, ctx) {
+    if (!GEAR.has(o.type)) return 'goods';
     if (ctx.keep.has(o.item_id)) return 'keep';
     if (o.named) return 'named';
     if (o.set) return 'set';
@@ -113,13 +173,9 @@
     if (o.unique) return 'unique';
     if (o.quest) return 'quest';
     if (!o.sellable || !(Number(o.sell_price) > 0)) return 'nosell';
-    if (o.type === 'recipe') return 'recipe';
-    if (o.type === 'animal') return 'animal';
-    if (o.type === 'collection') return 'collection';
     if (ctx.craft.has(o.item_id)) return 'craft';
     if (ctx.equip.has(o.item_id)) return 'equip';
-    if (o.type === 'yield' && Array.isArray(o.usebonus) && o.usebonus.length) return 'usable';
-    if (!GEAR.has(o.type) && o.type !== 'yield') return 'other';
+    if (ctx.best.has(o.item_id)) return ctx.best.get(o.item_id);
     return null;
   }
 
@@ -129,19 +185,26 @@
     if (!ch) return { error: 'wait' };
     if (!bag?.loaded || !bag.items_by_id) return { error: 'bagMissing' };
     const equip = equipItems();
-    const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), craft: craftItems(), equip: equip.ids };
+    const bagItems = Object.values(bag.items_by_id).filter(it => it?.obj && Number(it.count) > 0);
+    const best = bestItems(bagItems.filter(it => GEAR.has(it.obj.type)));
+    const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), craft: craftItems(), equip: equip.ids, best };
     const items = [];
     const kept = {};
-    for (const it of Object.values(bag.items_by_id)) {
+    const bestKept = [];
+    for (const it of bagItems) {
       const o = it?.obj;
       if (!o || !(Number(it.count) > 0)) continue;
       const why = reason(o, ctx);
-      if (why) { kept[why] = (kept[why] || 0) + 1; continue; }
+      if (why) {
+        kept[why] = (kept[why] || 0) + 1;
+        if (STATS[why]) bestKept.push({ type: o.type, name: String(o.name).trim(), why });
+        continue;
+      }
       items.push({ id: o.item_id, name: String(o.name).trim(), level: Number(o.level) || 0, type: o.type,
         count: Number(it.count), price: Number(o.sell_price), sum: Number(o.sell_price) * Number(it.count) });
     }
     items.sort((a, b) => b.sum - a.sum || a.name.localeCompare(b.name));
-    return { ch, items, kept, keep: ctx.keep, equipSets: equip.count };
+    return { ch, items, kept, bestKept, keep: ctx.keep, equipSets: equip.count };
   }
 
   // ---------- Rozhranie ----------
@@ -187,6 +250,10 @@
     td.n, th.n { text-align: right; white-space: nowrap; }
     tr.off td { color: #a08a6a; }
     .lvl { font-size: 11px; color: #8a7558; }
+    .slots { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
+    .slots button { border: 1px solid #7a4e2d; border-radius: 12px; padding: 3px 10px; cursor: pointer; background: #e8dcc0; color: #4a2f17; font-weight: bold; }
+    .slots button[aria-selected="true"] { background: #4a2f17; color: #f2dfa7; }
+    .slots .cnt { font-weight: normal; opacity: .8; }
     [hidden] { display: none !important; }
   `;
 
@@ -215,6 +282,9 @@
   let message = { text: '', error: false };
   const unchecked = new Set();
 
+  let slotTab = GM_getValue(P + 'slot', 'all');
+  const inTab = x => slotTab === 'all' || x.type === slotTab;
+
   function render() {
     if (panel.hidden) return;
     $('title').textContent = t('title');
@@ -225,31 +295,41 @@
     const box = $('sell');
     const data = sellData();
     if (data.error) { box.innerHTML = `<div class="card warn">${t(data.error)}</div>`; return; }
-    const chosen = data.items.filter(x => !unchecked.has(x.id));
+    if (slotTab !== 'all' && !SLOTS.includes(slotTab)) slotTab = 'all';
+    const shown = data.items.filter(inTab);
+    const chosen = shown.filter(x => !unchecked.has(x.id));
     const chosenSum = chosen.reduce((a, x) => a + x.sum, 0);
+    const allSum = data.items.reduce((a, x) => a + x.sum, 0);
     const busy = !!selling;
     const msg = selling ? t('selling')(selling.done + 1, selling.total) : message.text;
-    const table = (title, rows) => rows.length ? `<h4>${title}</h4><table><thead><tr><th></th><th>${t('item')}</th>
-        <th class="n">${t('qty')}</th><th class="n">${t('piece')}</th><th class="n">${t('sum')}</th><th></th></tr></thead><tbody>
-        ${rows.map(x => `<tr class="${unchecked.has(x.id) ? 'off' : ''}">
+    const count = slot => data.items.filter(x => slot === 'all' || x.type === slot).length;
+    const tabs = ['all', ...SLOTS].filter(slot => slot === 'all' || slot === slotTab || count(slot) > 0).map(slot => `<button type="button" role="tab" data-slot="${slot}" aria-selected="${slot === slotTab}">
+        ${slot === 'all' ? t('all') : t('slots')[slot]} <span class="cnt">${fmt(count(slot))}</span></button>`).join('');
+    const rows = list => list.map(x => `<tr class="${unchecked.has(x.id) ? 'off' : ''}">
           <td><input type="checkbox" data-pick="${x.id}" ${unchecked.has(x.id) ? '' : 'checked'} ${busy ? 'disabled' : ''}></td>
           <td title="${escapeHtml(x.name)}">${escapeHtml(x.name)}${x.level ? ` <span class="lvl">(${t('level')} ${x.level})</span>` : ''}</td>
           <td class="n">${fmt(x.count)}</td><td class="n">${money(x.price)}</td><td class="n"><b>${money(x.sum)}</b></td>
           <td><button class="link" type="button" data-sellone="${x.id}" ${busy ? 'disabled' : ''}>${t('sellOne')}</button>
-            <button class="link" type="button" data-keep="${x.id}" ${busy ? 'disabled' : ''}>${t('keep')}</button></td></tr>`).join('')}
-        </tbody></table>` : '';
+            <button class="link" type="button" data-keep="${x.id}" ${busy ? 'disabled' : ''}>${t('keep')}</button></td></tr>`).join('');
+    const head = `<thead><tr><th></th><th>${t('item')}</th><th class="n">${t('qty')}</th><th class="n">${t('piece')}</th><th class="n">${t('sum')}</th><th></th></tr></thead>`;
+    const body = slotTab === 'all'
+      ? SLOTS.map(slot => { const l = shown.filter(x => x.type === slot); return l.length ? `<h4>${t('slots')[slot]}</h4><table>${head}<tbody>${rows(l)}</tbody></table>` : ''; }).join('')
+      : (shown.length ? `<table>${head}<tbody>${rows(shown)}</tbody></table>` : '');
+    const bestLabel = { hp: t('bestHp'), ride: t('bestRide'), speed: t('bestSpeed') };
+    const bestHere = data.bestKept.filter(inTab);
     const keptText = Object.entries(data.kept).map(([k, n]) => `${t('why')[k] || k} ${fmt(n)}`).join(' · ');
     box.innerHTML = `
       <p class="muted">${t('intro')}</p>
+      <nav class="slots" role="tablist">${tabs}</nav>
       <div class="card row bar">
-        <span class="grow">${t('total')}: <b>${fmt(data.items.length)}</b> · ${t('selected')}: <b>${fmt(chosen.length)}</b> = <b>${money(chosenSum)}</b></span>
+        <span class="grow">${t('total')}: <b>${fmt(shown.length)}</b> · ${t('selected')}: <b>${fmt(chosen.length)}</b> = <b>${money(chosenSum)}</b>
+          ${slotTab === 'all' ? '' : `<span class="muted">(${t('all').toLowerCase()}: ${fmt(data.items.length)} = ${money(allSum)})</span>`}</span>
         ${busy ? `<button class="btn" type="button" data-stop>${t('stop')}</button>`
           : `<button class="btn" type="button" data-sellall ${chosen.length ? '' : 'disabled'}>${t('sellAll')}</button>`}
       </div>
       ${msg ? `<div class="${message.error && !selling ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(msg)}</div>` : ''}
-      ${data.items.length ? '' : `<p class="muted">${t('none')}</p>`}
-      ${table(t('gear'), data.items.filter(x => GEAR.has(x.type)))}
-      ${table(t('goods'), data.items.filter(x => !GEAR.has(x.type)))}
+      ${shown.length ? body : `<p class="muted">${t('none')}</p>`}
+      ${bestHere.length ? `<p class="muted">${t('best')}: ${bestHere.map(b => `${escapeHtml(b.name)} <i>(${bestLabel[b.why]})</i>`).join(' · ')}</p>` : ''}
       <p class="muted">${t('kept')}: ${keptText || '–'}</p>
       <p class="muted">${data.equipSets ? t('equipKnown')(data.equipSets) : t('equipHint')}</p>
       ${data.keep.size ? `<button class="link" type="button" data-keepreset ${busy ? 'disabled' : ''}>${t('resetKeep')} (${fmt(data.keep.size)})</button>` : ''}`;
@@ -307,6 +387,7 @@
     if (!el || el.disabled) return;
     const data = sellData();
     if (data.error) return;
+    if (el.dataset.slot) { slotTab = el.dataset.slot; GM_setValue(P + 'slot', slotTab); render(); return; }
     if (el.dataset.stop !== undefined) { if (selling) selling.stop = true; return; }
     if (el.dataset.keepreset !== undefined) { GM_setValue(keepKey(data.ch), []); render(); return; }
     if (el.dataset.keep) {
@@ -322,7 +403,7 @@
       return;
     }
     if (el.dataset.sellall !== undefined) {
-      const list = data.items.filter(x => !unchecked.has(x.id));
+      const list = data.items.filter(x => inTab(x) && !unchecked.has(x.id));
       const sum = list.reduce((a, x) => a + x.sum, 0);
       if (list.length && window.confirm(t('confirmAll')(fmt(list.length), money(sum)))) sellList(list);
     }
