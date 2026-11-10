@@ -4,7 +4,9 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Čo kalkulačka vie
 
-- Všetkých 23 výrobkov z remeselnej kalkulačky (kováč, poľný kuchár, mastičkár, sedlár) s kategóriami, receptami a medziproduktmi. Recepty sú pribalené v skripte, nič sa nesťahuje.
+- Všetky remeselné recepty z hry (222 výrobkov pre kováča, poľného kuchára, mastičkára a sedlára) s kategóriami a medziproduktmi. Recepty sa pri prvom otvorení prečítajú z údajov, ktoré má hra už načítané, nič sa nesťahuje. Pôvodných 23 výrobkov z tabuľky má kategórie a efekty z tabuľky.
+- Výber remesla: predvolene tvoje remeslo, alebo všetky remeslá. Pri výrobku je jeho úroveň receptu.
+- Suroviny, ktoré sa nedajú nájsť prácou (napríklad Prázdná nádoba alebo Habanero Chili), sú v tabuľke označené „nedá sa nájsť prácou“ a nerátajú sa do hodín.
 - Plán z jedného aj viacerých výrobkov s počtom kusov. Pri spoločnom pláne sa potreby surovín najprv sčítajú a obsah batohu sa odpočíta raz od súčtu, takže sa jedna zásoba nezapočíta dvakrát.
 - Pri každej surovine: potrebné, v batohu, chýba, vhodná práca, isté kusy za hodinu, hodiny a energia (1 hodina = 12 energie).
 - Hotové medziprodukty z batoha sa použijú prednostne (napríklad roztavené olovo): suroviny sa rátajú iba na medziprodukty, ktoré ešte treba vyrobiť. Tabuľka medziproduktov ukazuje potrebné, v batohu a koľko vyrobiť.
@@ -14,14 +16,14 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.5.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.6.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
 1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí vo voľnom mieste hry: pod horným panelom, nad dolným panelom a medzi postavou s chatom vľavo a minimapou, menu a prácami vpravo. Veľkosť sa prispôsobí oknu (desktop aj notebook) a pri zmene veľkosti okna sa prepočíta. Ak je obsah dlhší, posúva sa vnútri kalkulačky. Okno môžeš chytiť myšou za hornú lištu a presunúť kamkoľvek na obrazovke. Poloha sa zapamätá, dvojklik na lištu ho vráti na automatické miesto.
 2. Pri prvom použití si oblečieš výbavu, v ktorej budeš robiť práce, a klikneš **Obnoviť nálezku**. Kalkulačka si uloží nálezku a dostupnosť prác pre túto postavu a svet.
-3. Vyber kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
+3. Vyber remeslo, kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
 
 ## Tím: zdieľané batohy a spoločné ciele
@@ -42,7 +44,7 @@ Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „T
 
 ## Zaťaženie herného servera
 
-- Otvorenie kalkulačky, výber výrobku, zmena počtu a prepočet neposielajú na herný server **žiadnu** požiadavku. Batoh sa číta z údajov, ktoré už hra má načítané.
+- Otvorenie kalkulačky, výber výrobku, zmena počtu a prepočet neposielajú na herný server **žiadnu** požiadavku. Batoh aj recepty sa čítajú z údajov, ktoré už hra má načítané.
 - Nálezka a dostupnosť prác sa ukladajú lokálne v Tampermonkey pre každú postavu a svet. Pri nálezke sa zobrazuje dátum posledného obnovenia. Po 7 dňoch je označená ako staršia, ale ďalej sa používa.
 - Obnovenie spustí iba tlačidlo **Obnoviť nálezku** a pošle najviac **jednu** požiadavku (okno Práce). Opakované kliknutie počas načítavania ani 5 sekúnd po ňom ďalšiu požiadavku nepošle.
 - Ak obnovenie zlyhá, ostávajú posledné úspešne uložené údaje.
@@ -56,6 +58,6 @@ Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „T
 
 ## Rozdiely oproti tabuľke
 
-Výsledky sú rovnaké ako v hárku Kalkulačka pre ten istý výrobok, nálezku a inventár, kým v batohu nie sú hotové medziprodukty. Navyše kalkulačka v hre vie spoločný plán viacerých výrobkov s jedným odpočtom batohu a odpočíta aj hotové medziprodukty, čo tabuľka nerobí.
+Výsledky sú rovnaké ako v hárku Kalkulačka pre tých istých 23 výrobkov, nálezku a inventár, kým v batohu nie sú hotové medziprodukty. Navyše kalkulačka v hre vie spoločný plán viacerých výrobkov s jedným odpočtom batohu a odpočíta aj hotové medziprodukty, čo tabuľka nerobí.
 
 Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry) ostáva v tabuľke, tento skript ho už nepoužíva. Časť Tím zapisuje do vlastných hárkov „Tím – batohy“ a „Tím – ciele“.
