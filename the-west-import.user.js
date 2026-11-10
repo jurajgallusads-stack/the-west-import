@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.0
+// @version      2.0.1
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Funguje lokálne, bez Google tabuľky.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -298,11 +298,11 @@
         border: 2px solid #87643c; border-radius: 3px;
         background: linear-gradient(#5e4427, #2f2015); color: #f9e2a8; font-weight: bold; }
       #open:hover, #open[aria-expanded="true"] { border-color: #d2a76a; }
-      #panel { position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
-        width: min(860px, calc(100vw - 16px)); max-height: calc(100vh - 64px); overflow: auto;
-        box-sizing: border-box; background: #f4e8cc; color: #4a2f17;
+      /* Poloha a veľkosť sa počítajú podľa voľného miesta medzi panelmi hry (placePanel). */
+      #panel { position: fixed; top: 110px; left: 8px; width: 860px; max-height: 70vh; overflow: auto;
+        box-sizing: border-box; background: #f4e8cc; color: #4a2f17; container-type: inline-size;
         border: 3px solid #4a2f17; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.55);
-        text-align: left; line-height: 1.35; }
+        text-align: left; line-height: 1.35; overscroll-behavior: contain; }
       header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px;
         padding: 8px 12px; background: #4a2f17; color: #f2dfa7; border-bottom: 3px double #d9b45a; }
       h2 { flex: 1; margin: 0; font: bold 20px Georgia, 'Times New Roman', serif; letter-spacing: .5px; }
@@ -342,6 +342,24 @@
       summary { cursor: pointer; font-weight: bold; }
       .job small { display: block; color: #7a4e2d; }
       footer { padding: 0 12px 10px; }
+      /* Užší panel (notebook, menšie okno): menšie písmo a riadky, nič sa nestratí. */
+      @container (max-width: 760px) {
+        .body { padding: 8px; }
+        h2 { font-size: 17px; }
+        table { font-size: 12px; }
+        th, td { padding: 3px 4px; }
+        .job small { font-size: 10px; }
+        .sum div { min-width: 110px; padding: 4px 8px; }
+        .sum b { font-size: 18px; }
+        #product { min-width: 200px; }
+      }
+      @container (max-width: 560px) {
+        table { font-size: 11px; }
+        th { white-space: normal; }
+        .job small { display: none; }
+        #product { min-width: 0; width: 100%; }
+        .sum b { font-size: 16px; }
+      }
       [hidden] { display: none !important; }
     </style>
     <button id="open" type="button" aria-expanded="false">TW</button>
@@ -552,12 +570,77 @@
 
   function L() { return lang === 'sk' ? 0 : 1; }
 
+  // Panel sa vojde do voľného miesta hry a neprekrýva horný a dolný panel, postavu, chat,
+  // minimapu ani menu. Prepočíta sa pri otvorení a pri zmene veľkosti okna.
+  const GAP = 8;
+  const MAX_WIDTH = 900;
+  const MIN_WIDTH = 520;
+  const MIN_HEIGHT = 300;
+
+  function hudRect(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? r : null;
+  }
+  const edge = (ids, pick, fallback, better) => ids.map(hudRect).filter(Boolean)
+    .reduce((acc, r) => better(acc, pick(r)), fallback);
+  const lowest = (ids, fallback) => edge(ids, r => r.bottom, fallback, Math.max);
+  const highest = (ids, fallback) => edge(ids, r => r.top, fallback, Math.min);
+  const rightmost = (ids, fallback) => edge(ids, r => r.right, fallback, Math.max);
+  const leftmost = (ids, fallback) => edge(ids, r => r.left, fallback, Math.min);
+
+  function freeArea() {
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const vh = document.documentElement.clientHeight || window.innerHeight;
+    const topBars = ['ui_topbar', 'buffbars'];
+    const area = (left, top, right, bottom) => ({
+      left: Math.max(GAP, left), top: Math.max(GAP, top),
+      right: Math.min(vw - GAP, right), bottom: Math.min(vh - GAP, bottom)
+    });
+    const candidates = [
+      // 1. Stredný stĺpec: medzi postavou/chatom vľavo a minimapou/menu/prácami vpravo.
+      area(rightmost(['ui_character_container', 'ui_bottomleft'], 0) + GAP,
+        lowest(topBars, 0) + GAP,
+        leftmost(['ui_right', 'ui_menubar', 'ui_bottomright'], vw) - GAP,
+        highest(['ui_bottombar'], vh) - GAP),
+      // 2. Celá šírka pod postavou a minimapou, nad chatom a prácami.
+      area(GAP,
+        lowest([...topBars, 'ui_character_container', 'ui_right'], 0) + GAP,
+        leftmost(['ui_menubar'], vw) - GAP,
+        highest(['ui_bottombar', 'ui_bottomleft', 'ui_bottomright'], vh) - GAP),
+      // 3. Malé okno: aspoň pod horným a nad dolným panelom.
+      area(GAP, lowest(topBars, 0) + GAP, vw - GAP, highest(['ui_bottombar'], vh) - GAP)
+    ];
+    const fits = a => a.right - a.left >= MIN_WIDTH && a.bottom - a.top >= MIN_HEIGHT;
+    return candidates.find(fits) || candidates[candidates.length - 1];
+  }
+
+  function placePanel() {
+    if (panel.hidden) return;
+    const a = freeArea();
+    const width = Math.max(260, Math.min(MAX_WIDTH, a.right - a.left));
+    const height = Math.max(200, a.bottom - a.top);
+    panel.style.width = `${width}px`;
+    panel.style.maxHeight = `${height}px`;
+    panel.style.top = `${a.top}px`;
+    panel.style.left = `${Math.round(a.left + Math.max(0, (a.right - a.left - width) / 2))}px`;
+  }
+  // Hra po zmene veľkosti okna presúva svoje panely s oneskorením, preto prepočet zopakujeme.
+  let placeTimers = [];
+  window.addEventListener('resize', () => {
+    placePanel();
+    placeTimers.forEach(clearTimeout);
+    placeTimers = [250, 1000].map(ms => setTimeout(placePanel, ms));
+  });
+
   function toggle(show = panel.hidden) {
     panel.hidden = !show;
     openButton.setAttribute('aria-expanded', String(show));
     if (show) {
       setMessage(message.text, message.error);
       renderAll();
+      placePanel();
     }
   }
 
