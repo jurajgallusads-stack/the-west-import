@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.2.0
+// @version      3.3.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -673,19 +673,20 @@
         right: auto !important; height: auto !important; display: flex; flex-direction: column; flex: 1; min-height: 0; }
       .twc .twc-ft > .trows > .thead, .twc .twc-ft > .trows > .tfoot { position: relative !important; height: auto !important;
         flex: none; padding: 0 3px !important; box-sizing: border-box; }
-      .twc .twc-ft > .trows > .thead { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; padding-top: 6px !important; }
+      .twc .twc-ft > .trows > .thead { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; padding-top: 2px !important; }
       .twc .twc-ft > .trows > .tfoot { border-top: 1px solid #8b6b3f; }
       .twc .twc-ft > .trows > .tbody { position: relative !important; top: auto !important; bottom: auto !important; height: auto !important;
         flex: 1; min-height: 0; padding: 0 3px 6px; box-sizing: border-box; }
-      .twc .twc-ft-plain > .trows > .tbody { padding-top: 6px; }
       .twc .twc-ft-body { height: 100%; }
       .twc .twc-ft-fill .twc-ft-body .tw2gui_scrollpane { height: 100% !important; }
       .twc table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .twc table.twc-head { table-layout: fixed; }
       .twc table.twc-head.twc-measure { table-layout: auto; width: auto !important; }
       .twc table.twc-head.twc-measure th { white-space: nowrap; }
-      .twc table.twc-head th { height: 30px; padding: 4px 8px; text-align: left; font-weight: 700; line-height: 13px; vertical-align: middle; color: #000; }
+      .twc table.twc-head th { height: 22px; padding: 2px 8px; text-align: left; font-weight: 700; font-size: 12px; line-height: 12px; vertical-align: middle; color: #000; }
       .twc table.twc-head th.n, .twc table.twc-head td.n { text-align: right; }
+      .twc table.twc-center th:not(:first-child), .twc table.twc-center td:not(:first-child) { text-align: center !important; }
+      .twc table.twc-center td:first-child { white-space: nowrap; }
       .twc table th:first-child, .twc table td:first-child { padding-left: 12px; }
       .twc table th:last-child, .twc table td:last-child { padding-right: 12px; }
       .twc table.twc-foot-t td { height: 28px; padding: 0 8px; font-weight: bold; }
@@ -829,22 +830,32 @@
     const body = shell.querySelector('.twc-ft-body');
     const G = gui();
     if (!table.classList.contains('twc-scroll') || !G?.Scrollpane) {
-      shell.querySelector('.thead').remove();
-      shell.querySelector('.tfoot').remove();
+      // Bez posuvníka: hlavička je rovnako ako pri ostatných tabuľkách hore v ráme.
       shell.classList.add('twc-ft-plain');
+      if (table.tHead) {
+        const head = document.createElement('table');
+        head.className = 'twc-head';
+        if (table.classList.contains('twc-center')) head.classList.add('twc-center');
+        head.appendChild(table.tHead.cloneNode(true));
+        shell.querySelector('.thead').appendChild(head);
+        table.classList.add('twc-body');
+      } else shell.querySelector('.thead').remove();
+      shell.querySelector('.tfoot').remove();
       body.appendChild(table);
+      queueSync();
       return;
     }
     if (table.classList.contains('twc-fill')) shell.classList.add('twc-ft-fill');
     if (table.tHead) {
       const head = document.createElement('table');
       head.className = 'twc-head';
+      if (table.classList.contains('twc-center')) head.classList.add('twc-center');
       head.appendChild(table.tHead.cloneNode(true));
       shell.querySelector('.thead').appendChild(head);
     } else shell.querySelector('.thead').remove();
     if (table.tFoot) {
       const foot = document.createElement('table');
-      foot.className = 'twc-head twc-foot-t';
+      foot.className = 'twc-head twc-foot-t' + (table.classList.contains('twc-center') ? ' twc-center' : '');
       foot.appendChild(table.tFoot.cloneNode(true));
       shell.querySelector('.tfoot').appendChild(foot);
     } else shell.querySelector('.tfoot').remove();
@@ -1074,25 +1085,24 @@
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
       .map(r => {
         if (r.job.jobId === null) {
-          return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td>${escapeHtml(nameOf(r.id))}</td>
+          return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td title="${escapeHtml(t('noSource'))}">${escapeHtml(nameOf(r.id))}</td>
             <td class="n">${fmt(r.need)}</td><td class="n">${bag ? fmt(r.have) : '?'}</td>
-            <td class="n miss">${fmt(r.missing)}</td><td class="job"><small>${t('noSource')}</small></td>
+            <td class="n miss">${fmt(r.missing)}</td>
             <td class="n">–</td><td class="n">–</td><td class="n">–</td></tr>`;
         }
         const level = DATA.jobs[r.job.jobId][2];
-        let jobInfo = `${escapeHtml(jobName(r.job.jobId))}<small>${t('level')} ${level}`;
+        // Vhodná práca je v bublinke pri názve suroviny (stĺpec v tabuľke nie je).
+        let jobInfo = `${t('job')}: ${jobName(r.job.jobId)} (${t('level')} ${level})`;
         if (r.job.rate <= 0) jobInfo += ` · ${t('noJob')}`;
         else if (r.job.access === 'A') jobInfo += ` · ${t('viaPoints')}`;
         if (!r.job.saved && r.job.rate > 0) jobInfo += ` · ${t('baseNote')}`;
-        jobInfo += '</small>';
         const na = r.hours === null && r.missing > 0;
         const cls = na ? 'na' : r.missing === 0 ? 'ok' : '';
         return `<tr class="${cls}">
-          <td>${escapeHtml(nameOf(r.id))}</td>
+          <td title="${escapeHtml(jobInfo)}">${escapeHtml(nameOf(r.id))}</td>
           <td class="n">${fmt(r.need)}</td>
           <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
           <td class="n miss">${fmt(r.missing)}</td>
-          <td class="job">${jobInfo}</td>
           <td class="n" title="${fmt(r.job.rate)} %">${r.job.rate > 0 ? fmt(r.chance) : '–'}</td>
           <td class="n">${r.hours === null ? '–' : fmtHours(r.hours)}</td>
           <td class="n">${r.energy === null ? '–' : fmt(Math.round(r.energy))}</td></tr>`;
@@ -1106,17 +1116,17 @@
         <td>${escapeHtml(DATA.profs[DATA.items[r.id][2]]?.[L()] ?? '')}</td></tr>`).join('');
 
     res.innerHTML = `
-      <table class="twc-scroll twc-fill">
+      <table class="twc-scroll twc-fill twc-center">
         <thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th>
-          <th class="n">${t('miss')}</th><th>${t('job')}</th><th class="n">${t('chance')}</th>
+          <th class="n">${t('miss')}</th><th class="n">${t('chance')}</th>
           <th class="n">${t('hours')}</th><th class="n">${t('energy')}</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr><td colspan="6">${t('total')}</td><td class="n">${fmtHours(result.hours)}</td>
+        <tfoot><tr><td colspan="5">${t('total')}</td><td class="n">${fmtHours(result.hours)}</td>
           <td class="n">${fmt(Math.round(result.energy))}</td></tr></tfoot>
       </table>
       ${inter ? `<details><summary>${t('inter')} (${result.inter.length})</summary>
         <p class="muted">${t('interNote')}</p>
-        <table class="twc-scroll" data-max="120"><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th class="n">${t('craft')}</th><th>${t('prof')}</th></tr></thead>
+        <table class="twc-scroll twc-center" data-max="120"><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th class="n">${t('craft')}</th><th>${t('prof')}</th></tr></thead>
         <tbody>${inter}</tbody></table></details>` : ''}`;
   }
 

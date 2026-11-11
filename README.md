@@ -8,7 +8,7 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 - Výber remesla: predvolene tvoje remeslo, alebo všetky remeslá. Pri výrobku je jeho úroveň receptu.
 - Suroviny, ktoré sa nedajú nájsť prácou (napríklad Prázdná nádoba alebo Habanero Chili), sú v tabuľke označené „nedá sa nájsť prácou“ a nerátajú sa do hodín.
 - Plán z jedného aj viacerých výrobkov s počtom kusov. Pri spoločnom pláne sa potreby surovín najprv sčítajú a obsah batohu sa odpočíta raz od súčtu, takže sa jedna zásoba nezapočíta dvakrát.
-- Pri každej surovine: potrebné, v batohu, chýba, vhodná práca, isté kusy za hodinu, hodiny a energia (1 hodina = 12 energie).
+- Pri každej surovine: potrebné, v batohu, chýba, isté kusy za hodinu, hodiny a energia (1 hodina = 12 energie). Vhodná práca s levelom je v bublinke, keď podržíš myš nad názvom suroviny.
 - Hotové medziprodukty z batoha sa použijú prednostne (napríklad roztavené olovo): suroviny sa rátajú iba na medziprodukty, ktoré ešte treba vyrobiť. Tabuľka medziproduktov ukazuje potrebné, v batohu a koľko vyrobiť.
 - Počíta rovnako ako tabuľka: iba obyčajné 1-hodinové práce, iba isté kusy (pri šanci aspoň 100 %), pod 100 % priemer. Strieborné práce sa nepočítajú a mapa sa neprehľadáva.
 - Prepínanie SK / CZ.
@@ -16,7 +16,7 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.2.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.3.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
