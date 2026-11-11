@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.1.0
+// @version      3.2.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -672,11 +672,11 @@
       .twc .twc-ft > .trows { position: relative !important; top: auto !important; bottom: auto !important; left: auto !important;
         right: auto !important; height: auto !important; display: flex; flex-direction: column; flex: 1; min-height: 0; }
       .twc .twc-ft > .trows > .thead, .twc .twc-ft > .trows > .tfoot { position: relative !important; height: auto !important;
-        flex: none; padding: 0 9px !important; box-sizing: border-box; }
+        flex: none; padding: 0 3px !important; box-sizing: border-box; }
       .twc .twc-ft > .trows > .thead { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; padding-top: 6px !important; }
       .twc .twc-ft > .trows > .tfoot { border-top: 1px solid #8b6b3f; }
       .twc .twc-ft > .trows > .tbody { position: relative !important; top: auto !important; bottom: auto !important; height: auto !important;
-        flex: 1; min-height: 0; padding: 0 9px 9px; box-sizing: border-box; }
+        flex: 1; min-height: 0; padding: 0 3px 6px; box-sizing: border-box; }
       .twc .twc-ft-plain > .trows > .tbody { padding-top: 6px; }
       .twc .twc-ft-body { height: 100%; }
       .twc .twc-ft-fill .twc-ft-body .tw2gui_scrollpane { height: 100% !important; }
@@ -685,12 +685,19 @@
       .twc table.twc-head.twc-measure { table-layout: auto; width: auto !important; }
       .twc table.twc-head.twc-measure th { white-space: nowrap; }
       .twc table.twc-head th { height: 30px; padding: 4px 8px; text-align: left; font-weight: 700; line-height: 13px; vertical-align: middle; color: #000; }
+      .twc table.twc-head th.n, .twc table.twc-head td.n { text-align: right; }
+      .twc table th:first-child, .twc table td:first-child { padding-left: 12px; }
+      .twc table th:last-child, .twc table td:last-child { padding-right: 12px; }
       .twc table.twc-foot-t td { height: 28px; padding: 0 8px; font-weight: bold; }
       .twc table.twc-body > thead > tr, .twc table.twc-body > tfoot > tr { visibility: collapse; }
       .twc .twc-ft-plain table thead th { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; height: 30px; padding: 0 8px;
         text-align: left; font-weight: 700; white-space: nowrap; color: #000; }
       .twc table tbody tr { background: ${img('table/table_row.png')} 50% 100% / 100% 100% no-repeat; }
-      .twc table tbody td { padding: 6px 8px; height: 20px; line-height: 16px; vertical-align: middle; }
+      /* Všetky riadky vo všetkých tabuľkách majú rovnakú výšku; pozadie riadku siaha až po okraj tabuľky. */
+      .twc table tbody td { padding: 0 8px; height: 34px; box-sizing: border-box; line-height: 14px; vertical-align: middle; }
+      .twc input[data-qty] { width: 56px; height: 20px; box-sizing: border-box; padding: 0 4px; text-align: right; font: 12px Arial, sans-serif;
+        border: 1px solid #8b6b3f; border-radius: 3px; background: #f7efd9; color: #000; box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
+      .twc .twc-teammsg { margin: 8px 2px 2px; }
       .twc td.job { white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
       .twc td.n, .twc th.n { text-align: right; white-space: nowrap; }
       .twc tr.na td { background: rgba(160, 30, 20, .14); }
@@ -730,7 +737,9 @@
       .twc .claimline { font-size: 11px; color: #5b4a35; margin-top: 2px; }
       .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
       .twc table.comp { margin-top: 6px; }
-      .twc table.comp td { padding: 4px 8px; }
+      .twc table.comp td { padding: 0 8px; }
+      .twc table.comp td:first-child { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+      .twc table.comp td.prog { width: 80px; min-width: 0; }
       .twc table.comp td:first-child .tag { display: block; line-height: 11px; }
     `;
     document.head.appendChild(style);
@@ -926,7 +935,7 @@
     try {
       root.querySelectorAll('button.btn').forEach(skinButton);
       root.querySelectorAll('select').forEach(skinSelect);
-      root.querySelectorAll('input[type=number]').forEach(skinNumber);
+      root.querySelectorAll('input[type=number]:not([data-qty])').forEach(skinNumber);
       root.querySelectorAll('input[type=checkbox]').forEach(skinCheckbox);
       root.querySelectorAll('table').forEach(skinTable);
       skinGoals();
@@ -1059,8 +1068,7 @@
     }
     sum.innerHTML = `
       <div>${t('hours')}<b>${fmtHours(result.hours)}</b></div>
-      <div>${t('energy')}<b>${fmt(Math.round(result.energy))}</b></div>
-      <div class="${result.unavailable ? 'bad' : ''}">${t('unavailable')}<b>${result.unavailable}</b></div>`;
+      <div>${t('energy')}<b>${fmt(Math.round(result.energy))}</b></div>`;
 
     const rows = result.raws
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
@@ -1129,6 +1137,12 @@
   });
 
   const closedGoals = new Set();
+  // Krátke meno hráča v tíme: dlhšie meno → prvé slovo, najviac 5 znakov.
+  const shortName = name => {
+    const full = String(name ?? '').trim();
+    if (full.length <= 5) return full;
+    return (full.split(/\s+/)[0] || full).slice(0, 5);
+  };
   function renderTeam() {
     const ch = character();
     const config = teamConfig();
@@ -1139,7 +1153,7 @@
     const chosen = others.filter(p => selected.has(p.id));
     $('tabteam').textContent = t('team') + (chosen.length ? ` (${chosen.length + 1})` : '');
     const msg = teamMessage.text
-      ? `<div class="${teamMessage.error ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(teamMessage.text)}</div>` : '';
+      ? `<div class="twc-teammsg ${teamMessage.error ? 'error' : 'muted'}" aria-live="polite">${escapeHtml(teamMessage.text)}</div>` : '';
     if (!config) {
       box.innerHTML = `<p class="muted">${t('teamIntro')}</p>
         <button class="btn" type="button" data-team="connect">${t('connect')}</button>${msg}`;
@@ -1148,13 +1162,13 @@
     const players = others.length
       ? `<div class="players">${others.map(p => `<label title="${t('updated')} ${escapeHtml(shortDate(p.ts))}">
           <input type="checkbox" data-player="${escapeHtml(p.id)}" ${selected.has(p.id) ? 'checked' : ''}>
-          ${escapeHtml(p.name)} <span class="muted">(${t('level')} ${p.level}, ${escapeHtml(shortDate(p.ts))})</span></label>`).join('')}</div>`
+          <span title="${escapeHtml(p.name)}">${escapeHtml(shortName(p.name))}</span> <span class="muted">(${t('level')} ${p.level}, ${escapeHtml(shortDate(p.ts))})</span></label>`).join('')}</div>`
       : `<div class="muted">${t('nobody')}</div>`;
 
     const own = bagReader();
     const store = ch ? loadStore(ch) : null;
     const people = [{ name: t('me'), count: id => (own ? own(id) : 0) },
-      ...chosen.map(p => ({ name: p.name, count: id => Number(p.inv?.[id]) || 0 }))];
+      ...chosen.map(p => ({ name: shortName(p.name), count: id => Number(p.inv?.[id]) || 0 }))];
     const pct = (have, need) => (need > 0 ? Math.min(1, have / need) : 1);
     const bar = f => `<span class="bar ${f >= 1 ? 'done' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`;
     const pctText = f => `${Math.floor(f * 100)} %`;
@@ -1170,7 +1184,7 @@
       if (!Array.isArray(claims) || !ch) return '';
       const list = claims.filter(c => c.goal === goalId && c.item === id);
       const mine = list.some(c => c.player === ch.id);
-      const names = list.map(c => (c.player === ch.id ? `<b>${escapeHtml(t('me'))}</b>` : escapeHtml(c.name))).join(', ');
+      const names = list.map(c => (c.player === ch.id ? `<b>${escapeHtml(t('me'))}</b>` : `<span title="${escapeHtml(c.name)}">${escapeHtml(shortName(c.name))}</span>`)).join(', ');
       return `<span class="claim">${names ? `<small>${names}</small> ` : ''}<button class="link" type="button"
         data-claim="${escapeHtml(goalId)}" data-item="${id}" data-on="${mine ? 0 : 1}" ${teamBusy ? 'disabled' : ''}>${mine ? t('unclaim') : t('claim')}</button></span>`;
     };
