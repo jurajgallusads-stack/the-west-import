@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.2.0
+// @version      1.3.0
 // @description  Zoznam oblečenia a zbraní z batoha, ktoré nepotrebuješ, po záložkách a s cenou. Sady, pomenované, vylepšené a najlepšie kusy na HP a rýchlosť sa neponúkajú. Produkty sa nepredávajú. Predaj obchodníkovi po potvrdení.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -25,7 +25,7 @@
   const T = {
     sk: {
       title: 'Predaj nepotrebných vecí', icon: 'Predaj nepotrebných vecí', close: 'Zavrieť', minimize: 'Minimalizovať', restore: 'Obnoviť okno',
-      intro: 'Oblečenie a zbrane z batoha, ktoré nepotrebuješ. Produkty sa nepredávajú vôbec. Neponúkajú sa sady, pomenované a vylepšené predmety ani v každej časti oblečenia kus s najviac HP, s najlepšou jazdou na koni (jazda + obratnosť) a s najvyššou rýchlosťou. Oblečenie na sebe sa nepredáva. Odškrtnutá vec sa tentoraz nepredá, tlačidlom „nepredávať“ ju vylúčiš natrvalo.',
+      intro: 'Oblečenie a zbrane z batoha, ktoré nepotrebuješ. Produkty sa nepredávajú vôbec. Neponúkajú sa veci potrebné na úlohy (117 predmetov podľa TW-DB), sady, pomenované a vylepšené predmety ani v každej časti oblečenia kus s najviac HP, s najlepšou jazdou na koni (jazda + obratnosť) a s najvyššou rýchlosťou. Oblečenie na sebe sa nepredáva. Odškrtnutá vec sa tentoraz nepredá, tlačidlom „nepredávať“ ju vylúčiš natrvalo.',
       all: 'Všetko', slots: { head: 'Klobúky', neck: 'Šatky', body: 'Oblečenie', belt: 'Opasky', pants: 'Nohavice', foot: 'Topánky', right_arm: 'Duelové zbrane', left_arm: 'Zbrane do pevnosti' },
       best: 'Ponechané ako najlepšie', bestHp: 'najviac HP', bestRide: 'najlepšia jazda', bestSpeed: 'najvyššia rýchlosť',
       bagMissing: 'Batoh ešte nie je načítaný. Otvor v hre batoh (inventár) a zoznam sa zobrazí.',
@@ -41,12 +41,12 @@
       equipKnown: n => `Zo Šatníka si skript pamätá ${n} ks oblečenia, tie sa nepredávajú. Po zmene sád otvor Šatník znova.`,
       pace: 'Tempo', paceOpt: n => `1 predaj za ${n} s`, pause: n => `Prestávka, pokračujem o ${n} s…`, retry: n => `Hra neodpovedala, skúsim znova o ${n} s…`,
       paceNote: 'Predáva sa pomaly a po dávkach (15 kusov, potom 30 s prestávka), aby to hra zvládla. Pri chybe skript počká a skúsi to ešte raz.',
-      why: { keep: 'nepredávať', named: 'pomenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úlohy', nosell: 'nepredajné',
+      why: { keep: 'nepredávať', named: 'pomenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'na úlohy', nosell: 'nepredajné',
         goods: 'produkty a ostatné', craft: 'remeslo', equip: 'v sadách', hp: 'najviac HP', ride: 'najlepšia jazda', speed: 'najvyššia rýchlosť' }
     },
     cz: {
       title: 'Prodej nepotřebných věcí', icon: 'Prodej nepotřebných věcí', close: 'Zavřít', minimize: 'Minimalizovat', restore: 'Obnovit okno',
-      intro: 'Oblečení a zbraně z batohu, které nepotřebuješ. Produkty se neprodávají vůbec. Nenabízejí se sady, pojmenované a vylepšené předměty ani v každé části oblečení kus s nejvíce HP, s nejlepší jízdou na koni (jízda + obratnost) a s nejvyšší rychlostí. Oblečení na sobě se neprodává. Odškrtnutá věc se tentokrát neprodá, tlačítkem „neprodávat“ ji vyloučíš natrvalo.',
+      intro: 'Oblečení a zbraně z batohu, které nepotřebuješ. Produkty se neprodávají vůbec. Nenabízejí se věci potřebné na úkoly (117 předmětů podle TW-DB), sady, pojmenované a vylepšené předměty ani v každé části oblečení kus s nejvíce HP, s nejlepší jízdou na koni (jízda + obratnost) a s nejvyšší rychlostí. Oblečení na sobě se neprodává. Odškrtnutá věc se tentokrát neprodá, tlačítkem „neprodávat“ ji vyloučíš natrvalo.',
       all: 'Vše', slots: { head: 'Klobouky', neck: 'Šátky', body: 'Oblečení', belt: 'Opasky', pants: 'Kalhoty', foot: 'Boty', right_arm: 'Duelové zbraně', left_arm: 'Zbraně do pevnosti' },
       best: 'Ponechané jako nejlepší', bestHp: 'nejvíce HP', bestRide: 'nejlepší jízda', bestSpeed: 'nejvyšší rychlost',
       bagMissing: 'Batoh ještě není načtený. Otevři ve hře batoh (inventář) a seznam se zobrazí.',
@@ -62,7 +62,7 @@
       equipKnown: n => `Ze Šatníku si skript pamatuje ${n} ks oblečení, ty se neprodávají. Po změně sad otevři Šatník znovu.`,
       pace: 'Tempo', paceOpt: n => `1 prodej za ${n} s`, pause: n => `Přestávka, pokračuji za ${n} s…`, retry: n => `Hra neodpověděla, zkusím znovu za ${n} s…`,
       paceNote: 'Prodává se pomalu a po dávkách (15 kusů, pak 30 s přestávka), aby to hra zvládla. Při chybě skript počká a zkusí to ještě jednou.',
-      why: { keep: 'neprodávat', named: 'pojmenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úkoly', nosell: 'neprodejné',
+      why: { keep: 'neprodávat', named: 'pojmenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'na úkoly', nosell: 'neprodejné',
         goods: 'produkty a ostatní', craft: 'řemeslo', equip: 'v sadách', hp: 'nejvíce HP', ride: 'nejlepší jízda', speed: 'nejvyšší rychlost' }
     }
   };
@@ -183,6 +183,9 @@
     if (bases.size) setCache = bases;
     return bases;
   }
+  // Predmety potrebné na úlohy (podľa TW-DB, 117 predmetov, stav 11. 11. 2026): základné ID predmetu (item_id / 1000).
+  const QUEST_BASES = new Set([1,3,4,5,6,9,17,30,57,63,124,201,202,203,205,219,221,224,226,227,228,229,235,244,253,254,256,257,259,265,295,302,312,325,326,327,341,342,351,352,353,354,362,363,364,368,369,404,417,429,440,470,482,503,508,509,510,512,537,539,548,566,600,601,602,604,606,643,800,802,805,807,808,821,836,867,10003,10041,10042,10043,10075,10094,10145,10149,10180,10193,10217,11003,11011,11012,11013,11077,11115,11137,11138,11140,11170,11182,11206,40003,40019,40036,40049,40074,40098,40108,40109,40110,41008,41020,41044,42057,42058,42059,42060,42084,43006]);
+
   const baseOf = o => Number(o.item_base_id) || Math.floor(Number(o.item_id) / 1000);
 
   // Uložené sady oblečenia (Šatník). Keď ich hra načíta (otvorením Šatníka), skript si ich zapamätá – bez vlastnej požiadavky.
@@ -248,7 +251,7 @@
     if (o.set || ctx.sets.has(baseOf(o))) return 'set';
     if (Number(o.item_level) > 0) return 'upgraded';
     if (o.unique) return 'unique';
-    if (o.quest) return 'quest';
+    if (o.quest || QUEST_BASES.has(baseOf(o))) return 'quest';
     if (!o.sellable || !(Number(o.sell_price) > 0)) return 'nosell';
     if (ctx.craft.has(o.item_id)) return 'craft';
     if (ctx.equip.has(o.item_id) || ctx.equipBase.has(baseOf(o))) return 'equip';

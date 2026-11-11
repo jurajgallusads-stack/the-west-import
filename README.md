@@ -54,7 +54,8 @@ Predaj je samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.
   - predmety zo sád (napríklad sada bojovníka z truhiel);
   - pomenované predmety (napríklad Athosov fleret);
   - vylepšené predmety;
-  - remeselné, úlohové a nepredajné predmety.
+  - remeselné a nepredajné predmety;
+  - **veci potrebné na úlohy**: 117 predmetov podľa TW-DB (stav 11. 11. 2026), napríklad Černý trojcípý šátek alebo Drahý kovbojský klobouk, vrátane vylepšených kusov.
 - **Najlepšie kusy:** v každej časti oblečenia sa ponechá kus, ktorý dáva:
   - najviac **HP** (zdravie + sila);
   - najlepšiu **jazdu na koni** (jazda + obratnosť vrátane bonusov za level);
