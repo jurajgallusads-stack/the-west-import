@@ -16,13 +16,13 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 2.9.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.0.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
-1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí vo voľnom mieste hry: pod horným panelom, nad dolným panelom a medzi postavou s chatom vľavo a minimapou, menu a prácami vpravo. Veľkosť sa prispôsobí oknu (desktop aj notebook) a pri zmene veľkosti okna sa prepočíta. Ak je obsah dlhší, posúva sa vnútri kalkulačky. Okno má stálu veľkosť podľa obrazovky (najviac 900 × 680 px) a pri presúvaní sa nemení. Môžeš ho chytiť myšou za hornú lištu a presunúť kamkoľvek, ale nikdy nezasiahne do horného ani dolného panela hry. Okno sa prekrýva s hernými oknami ako ostatné okná: kliknutím alebo presunutím sa dá navrch, kliknutím na herné okno ide zase pod neho. Tlačidlo **–** okno zbalí na lištu (ako herné okná), **□** ho rozbalí. Poloha aj zbalenie sa zapamätajú, dvojklik na lištu vráti okno na automatické miesto.
-2. Pri prvom použití si oblečieš výbavu, v ktorej budeš robiť práce, a klikneš **Obnoviť nálezku**. Kalkulačka si uloží nálezku a dostupnosť prác pre túto postavu a svet.
+1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Ďalší klik na ikonu okno zatvorí.
+2. Pri prvom použití
 3. Vyber remeslo, kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
 
