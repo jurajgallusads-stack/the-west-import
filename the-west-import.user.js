@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.9.0
+// @version      3.0.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -235,7 +235,7 @@
       noJob: 'nedostupná', viaPoints: 'odomknutá pracovnými bodmi', level: 'level',
       inter: 'Medziprodukty', interOne: 'medziprodukt', craft: 'Vyrobiť', interNote: 'Hotové medziprodukty z batoha sa použijú a suroviny sa rátajú iba na tie, ktoré treba vyrobiť.',
       prof: 'Remeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer). Okno presunieš myšou za hornú lištu, tlačidlo – ho zbalí, dvojklik na lištu ho vráti na pôvodné miesto.`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Rátajú sa iba obyčajné 1-hodinové práce a isté kusy (pod 100 % priemer).`,
       baseNote: 'odhad zo základnej šance',
       team: 'Tím', teamIntro: 'Prepoj sa s hráčmi z tímu: kto zaškrtne zdieľanie, toho batoh uvidia ostatní, a môžete mať spoločné ciele. Na herný server sa nič neposiela.',
       connect: 'Pripojiť tím', teamPrompt: 'Vlož tímový kód (začína TWTIM:). Dostaneš ho od hráča, ktorý tím nastavil.',
@@ -268,7 +268,7 @@
       noJob: 'nedostupná', viaPoints: 'odemčená pracovními body', level: 'level',
       inter: 'Meziprodukty', interOne: 'meziprodukt', craft: 'Vyrobit', interNote: 'Hotové meziprodukty z batohu se použijí a suroviny se počítají jen na ty, které je třeba vyrobit.',
       prof: 'Řemeslo',
-      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr). Okno přesuneš myší za horní lištu, tlačítko – ho sbalí, dvojklik na lištu ho vrátí na původní místo.`,
+      foot: `1 hodina práce = ${ENERGY_PER_HOUR} energie. Počítají se jen běžné 1hodinové práce a jisté kusy (pod 100 % průměr).`,
       baseNote: 'odhad ze základní šance',
       team: 'Tým', teamIntro: 'Propoj se s hráči z týmu: kdo zaškrtne sdílení, toho batoh uvidí ostatní, a můžete mít společné cíle. Na herní server se nic neposílá.',
       connect: 'Připojit tým', teamPrompt: 'Vlož týmový kód (začíná TWTIM:). Dostaneš ho od hráče, který tým nastavil.',
@@ -556,173 +556,254 @@
   }
 
   // ---------- Rozhranie ----------
+  // Ikona TW ostáva v rade posilňovačov. Kalkulačka sa otvára ako bežné okno hry (wman, west.gui),
+  // takže má rovnaký rám, titulok, záložky, tlačidlá a posúvanie ako ostatné okná The West.
   const host = document.createElement('div');
   const ui = host.attachShadow({ mode: 'open' });
   ui.innerHTML = `
     <style>
-      :host { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
-        z-index: 2147483000; font: 13px Arial, sans-serif; }
-      :host([data-hud]) { position: relative; float: left; left: auto; bottom: auto;
-        transform: none; margin-right: 5px; }
-      /* Okno kalkulačky je medzi hernými oknami a prekrýva sa s nimi podľa toho, na ktoré sa klikne naposledy. */
-      :host([data-panel]) { position: absolute; left: 0; top: 0; bottom: auto; width: 0; height: 0;
-        transform: none; z-index: 1; }
-      button, select, input { font: inherit; }
-      #open { display: block; width: 43px; height: 43px; padding: 0; cursor: pointer;
-        border: 2px solid #87643c; border-radius: 3px;
-        background: linear-gradient(#5e4427, #2f2015); color: #f9e2a8; font-weight: bold; }
+      :host { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2147483000; font: 13px Arial, sans-serif; }
+      :host([data-hud]) { position: relative; float: left; left: auto; bottom: auto; transform: none; margin-right: 5px; }
+      #open { display: block; width: 43px; height: 43px; padding: 0; cursor: pointer; border: 2px solid #87643c; border-radius: 3px;
+        background: linear-gradient(#5e4427, #2f2015); color: #f9e2a8; font: bold 13px Arial, sans-serif; }
       #open:hover, #open[aria-expanded="true"] { border-color: #d2a76a; }
-      /* Poloha a veľkosť sa počítajú podľa voľného miesta medzi panelmi hry (placePanel). */
-      #panel { position: fixed; top: 110px; left: 8px; width: 860px; height: 70vh; overflow: auto;
-        box-sizing: border-box; background: #f4e8cc; color: #4a2f17; container-type: inline-size;
-        border: 3px solid #4a2f17; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.55);
-        text-align: left; line-height: 1.35; overscroll-behavior: contain; }
-      header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px;
-        padding: 8px 12px; background: #4a2f17; color: #f2dfa7; border-bottom: 3px double #d9b45a;
-        cursor: move; user-select: none; touch-action: none; }
-      header button { cursor: pointer; }
-      #panel.dragging { opacity: .92; box-shadow: 0 10px 32px rgba(0,0,0,.6); }
-      h2 { flex: 1; margin: 0; font: bold 20px Georgia, 'Times New Roman', serif; letter-spacing: .5px; }
-      header button { border: 1px solid #d9b45a; background: transparent; color: #f2dfa7;
-        border-radius: 3px; padding: 2px 8px; cursor: pointer; }
-      header button[aria-pressed="true"] { background: #d9b45a; color: #4a2f17; }
-      #close, #min { font-size: 18px; line-height: 1; padding: 2px 8px; }
-      #panel.min { height: auto !important; overflow: hidden; }
-      #panel.min > :not(header) { display: none; }
-      .body { padding: 10px 12px 12px; }
-      .card { background: #fbf4e4; border: 1px solid #d6c298; border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; }
-      .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-      .grow { flex: 1; }
-      .btn { border: 1px solid #7a4e2d; background: #f2dfa7; color: #4a2f17; border-radius: 4px;
-        padding: 4px 10px; cursor: pointer; font-weight: bold; }
-      .btn:disabled { opacity: .6; cursor: default; }
-      .badge { display: inline-block; padding: 1px 6px; border-radius: 9px; font-size: 11px;
-        background: #9c3d1e; color: #fff; margin-left: 4px; }
-      .muted { color: #7a4e2d; font-size: 12px; }
-      .warn { background: #f8d6da; border-color: #c97b84; }
-      .error { color: #9c3d1e; font-weight: bold; }
-      select, input[type=number] { border: 1px solid #b89a63; border-radius: 3px; background: #fffaf0; color: #4a2f17; padding: 3px 4px; }
-      #product { min-width: 280px; }
-      input[type=number] { width: 72px; }
-      table { width: 100%; border-collapse: collapse; }
-      th { background: #4a2f17; color: #f2dfa7; font-weight: bold; padding: 5px 6px; text-align: left; white-space: nowrap; }
-      td { padding: 4px 6px; border-bottom: 1px solid #e8dcc0; vertical-align: middle; }
-      td.n, th.n { text-align: right; white-space: nowrap; }
-      tr.na td { background: #f8d6da; }
-      td.miss { color: #9c3d1e; font-weight: bold; }
-      tr.ok td.miss { color: #276b27; }
-      .tag { font-size: 11px; color: #8a7558; font-style: italic; }
-      tfoot td { background: #d9b45a; font-weight: bold; border-top: 2px solid #4a2f17; }
-      .sum { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-      .sum div { flex: 1; min-width: 140px; background: #fbf4e4; border: 2px solid #4a2f17; border-radius: 4px; padding: 6px 10px; }
-      .sum b { display: block; font: bold 22px Georgia, serif; color: #7a4e2d; }
-      .sum .bad b { color: #9c3d1e; }
-      .x { border: 0; background: transparent; color: #9c3d1e; font-size: 16px; cursor: pointer; }
-      details { margin-top: 10px; }
-      summary { cursor: pointer; font-weight: bold; }
-      .job small { display: block; color: #7a4e2d; }
-      footer { padding: 0 12px 10px; }
-      #team { margin-top: 8px; }
-      #team .players { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 10px; }
-      #team .players label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-      #team h4 { margin: 10px 0 4px; font-size: 13px; }
-      #team .goaladd { margin-top: 8px; }
-      #team .share { margin-bottom: 8px; cursor: pointer; }
-      .tabs { display: flex; gap: 4px; padding: 6px 12px 0; background: #f4e8cc; border-bottom: 2px solid #4a2f17; }
-      .tabs button { border: 2px solid #4a2f17; border-bottom: 0; border-radius: 5px 5px 0 0; padding: 5px 14px; cursor: pointer;
-        background: #e8dcc0; color: #4a2f17; font-weight: bold; }
-      .tabs button[aria-selected="true"] { background: #4a2f17; color: #f2dfa7; }
-      details.goal > summary { list-style: none; cursor: pointer; font-weight: normal; }
-      details.goal > summary::-webkit-details-marker { display: none; }
-      details.goal > summary .goalhead b:first-child::before { content: '▸ '; color: #7a4e2d; }
-      details.goal[open] > summary .goalhead b:first-child::before { content: '▾ '; }
-      table.comp td { padding: 2px 6px; }
-      .goal { background: #fbf4e4; border: 1px solid #d6c298; border-radius: 4px; padding: 8px 10px; margin: 8px 0; }
-      .goalhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-      .goalhead .pct { font: bold 15px Georgia, serif; color: #7a4e2d; }
-      .bar { display: block; height: 7px; background: #e8dcc0; border-radius: 4px; overflow: hidden; margin: 5px 0 2px; }
-      .bar i { display: block; height: 100%; background: #b0793f; }
-      .bar.done i { background: #3f8a3f; }
-      td.prog { min-width: 90px; }
-      td.prog .bar { margin: 2px 0 0; }
-      td.prog small { color: #7a4e2d; font-size: 10px; }
-      .claim small { color: #4a2f17; font-size: 11px; }
-      .claimline { font-size: 11px; color: #7a4e2d; margin-top: 2px; }
-      small.who { display: block; color: #8a7a62; font-size: 10px; font-weight: normal; line-height: 1.2; }
-      table.comp { margin-top: 6px; }
-      table.comp th { background: #7a4e2d; }
-      table.comp tr.ok td.miss { color: #276b27; }
-      #goalitem { min-width: 220px; }
-      .link { border: 0; background: transparent; color: #7a4e2d; text-decoration: underline; cursor: pointer; padding: 0; }
-      td.ok { color: #276b27; font-weight: bold; }
-      /* Užší panel (notebook, menšie okno): menšie písmo a riadky, nič sa nestratí. */
-      @container (max-width: 760px) {
-        .body { padding: 8px; }
-        h2 { font-size: 17px; }
-        table { font-size: 12px; }
-        th, td { padding: 3px 4px; }
-        .job small { font-size: 10px; }
-        .sum div { min-width: 110px; padding: 4px 8px; }
-        .sum b { font-size: 18px; }
-        #product { min-width: 200px; }
-      }
-      @container (max-width: 560px) {
-        table { font-size: 11px; }
-        th { white-space: normal; }
-        .job small { display: none; }
-        #product { min-width: 0; width: 100%; }
-        .sum b { font-size: 16px; }
-      }
-      [hidden] { display: none !important; }
     </style>
-    <button id="open" type="button" aria-expanded="false">TW</button>
-    <section id="panel" role="dialog" hidden>
-      <header>
-        <h2 id="title"></h2>
-        <button type="button" data-lang="sk">SK</button>
-        <button type="button" data-lang="cz">CZ</button>
-        <button id="min" type="button">–</button>
-        <button id="close" type="button">×</button>
-      </header>
-      <nav class="tabs" role="tablist">
-        <button id="tabplan" type="button" role="tab" data-tab="plan"></button>
-        <button id="tabteam" type="button" role="tab" data-tab="team"></button>
-      </nav>
-      <div class="body">
-        <div id="bagwarn" class="card warn" hidden></div>
-        <div id="pane-team" hidden><div id="team"></div></div>
-        <div id="pane-plan">
-        <div class="card row">
-          <span id="who" class="grow"></span>
-          <button id="refresh" class="btn" type="button"></button>
-        </div>
-        <div id="message" class="muted" aria-live="polite"></div>
-        <div class="card row">
-          <label><span id="lprof"></span><br><select id="profession"></select></label>
-          <label><span id="lcat"></span><br><select id="category"></select></label>
-          <label class="grow"><span id="lprod"></span><br><select id="product"></select></label>
-          <label><span id="lqty"></span><br><input id="qty" type="number" min="1" step="1" value="1"></label>
-          <button id="add" class="btn" type="button" style="align-self:flex-end"></button>
-        </div>
-        <div id="plan" class="card"></div>
-        <div id="summary" class="sum"></div>
-        <div id="results"></div>
-        </div>
-      </div>
-      <footer id="foot" class="muted"></footer>
-    </section>
-  `;
+    <button id="open" type="button" aria-expanded="false">TW</button>`;
+  const openButton = ui.getElementById('open');
 
-  // Okno žije v kontajneri herných okien (#windows), ikona ostáva v rade posilňovačov.
-  const panelHost = document.createElement('div');
-  panelHost.id = 'twcalc-panel';
-  panelHost.setAttribute('data-panel', '');
-  const pui = panelHost.attachShadow({ mode: 'open' });
-  pui.appendChild(ui.querySelector('style').cloneNode(true));
-  pui.appendChild(ui.getElementById('panel'));
-  const $ = id => ui.getElementById(id) || pui.getElementById(id);
-  const panel = $('panel');
-  const openButton = $('open');
+  // Obsah okna. ID majú predponu twc-, aby sa nebili s prvkami hry.
+  const groupframe = inner => `<div class="tw2gui_groupframe twc-gf"><div class="tw2gui_groupframe_background bg0"></div>
+    <div class="tw2gui_groupframe_background bg1"></div><div class="tw2gui_groupframe_background bg2"></div>
+    <div class="tw2gui_groupframe_background bg3"></div><div class="tw2gui_groupframe_background bg4"></div>
+    <div class="tw2gui_groupframe_frame tw2gui_bg_tl"></div><div class="tw2gui_groupframe_frame tw2gui_bg_tr"></div>
+    <div class="tw2gui_groupframe_frame tw2gui_bg_bl"></div><div class="tw2gui_groupframe_frame tw2gui_bg_br"></div>
+    <div class="tw2gui_groupframe_content_pane">${inner}</div></div>`;
+  const root = document.createElement('div');
+  root.className = 'twc';
+  root.innerHTML = `
+    <nav class="tabs" role="tablist">
+      <button id="twc-tabplan" type="button" role="tab" data-tab="plan"></button>
+      <button id="twc-tabteam" type="button" role="tab" data-tab="team"></button>
+    </nav>
+    <div id="twc-bagwarn" class="twc-warn" hidden></div>
+    <div id="twc-pane-team" hidden><div id="twc-team"></div></div>
+    <div id="twc-pane-plan">
+      ${groupframe(`<div class="row twc-status"><span id="twc-who" class="grow"></span><span class="twc-langs"><button type="button" data-lang="sk">SK</button><button type="button" data-lang="cz">CZ</button></span><button id="twc-refresh" class="btn" type="button"></button></div>`)}
+      <div id="twc-message" class="muted" aria-live="polite"></div>
+      <div class="row twc-add">
+        <label><span id="twc-lprof"></span> <select id="twc-profession"></select></label>
+        <label><span id="twc-lcat"></span> <select id="twc-category"></select></label>
+      </div>
+      <div class="row twc-add">
+        <label class="grow"><span id="twc-lprod" class="twc-hidden-label"></span><select id="twc-product"></select></label>
+        <label><span id="twc-lqty" class="twc-hidden-label"></span><input id="twc-qty" type="number" min="1" step="1" value="1"></label>
+        <button id="twc-add" class="btn" type="button"></button>
+      </div>
+      <div id="twc-plan"></div>
+      <div id="twc-summary" class="sum"></div>
+      <div id="twc-results"></div>
+    </div>
+    <div id="twc-foot" class="muted twc-foot"></div>`;
+  const $ = id => root.querySelector('#twc-' + id) || ui.getElementById(id);
+  const panelSel = sel => root.querySelectorAll(sel);
+
+  // Vzhľad hry: obrázky z CDN hry, písmo a farby ako v herných oknách. Platí iba vnútri .twc.
+  function installStyle() {
+    if (document.getElementById('twc-style')) return;
+    const cdn = String(game.Game?.cdnURL || 'https://westcz.innogamescdn.com').replace(/\/$/, '');
+    const img = path => `url("${cdn}/images/tw2gui/${path}")`;
+    const style = document.createElement('style');
+    style.id = 'twc-style';
+    style.textContent = `
+      .twc { font: 13px Arial, Verdana, sans-serif; color: #000; padding: 2px 6px 10px; text-align: left; line-height: 1.35; }
+      .twc [hidden] { display: none !important; }
+      .twc .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+      .twc .grow { flex: 1; }
+      .twc .muted { color: #5b4a35; font-size: 12px; }
+      .twc .error { color: #8b0000; font-weight: bold; }
+      .twc .twc-warn { background: rgba(160, 30, 20, .12); border: 1px solid #a0522d; color: #6b1a0a; padding: 6px 10px; margin: 4px 0 8px; border-radius: 3px; }
+      .twc .twc-gf { margin: 2px 0 8px; height: auto !important; position: relative; }
+      .twc .twc-gf .tw2gui_groupframe_content_pane { position: relative; height: auto !important; padding: 6px 10px; }
+      /* Pozadie okna hry je obrázok s pevnou výškou; pri väčšom okne ho opakujeme, aby nevznikla medzera. */
+      .twcalc-win .tw2gui_window_inset { background-repeat: repeat !important; }
+      .twc .twc-status { min-height: 36px; }
+      .twc .twc-add { margin: 6px 2px; }
+      .twc .twc-add label { display: inline-flex; align-items: center; gap: 6px; }
+      .twc .twc-hidden-label { display: none; }
+      .twc #twc-message { margin: 0 4px 4px; }
+      .twc .twc-foot { margin: 10px 4px 0; }
+      .twc .twc-langs { display: inline-flex; gap: 2px; }
+      .twc .twc-langs button { border: 1px solid #8b6b3f; background: rgba(255,255,255,.35); color: #3b2a14; border-radius: 3px; padding: 0 6px; cursor: pointer; font: bold 11px Arial, sans-serif; }
+      .twc .twc-langs button[aria-pressed="true"] { background: #5b3a12; color: #f2dfa7; }
+      .twc.twc-in-window nav.tabs { display: none; }
+      .twc nav.tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+      .twc nav.tabs button[aria-selected="true"] { font-weight: bold; }
+      /* Tlačidlá ako v hre (tw2gui_button), aj keď sú to <button>. */
+      .twc button.tw2gui_button { border: 0; background: none; padding: 0; font: inherit; display: inline-block; vertical-align: middle; }
+      .twc button.tw2gui_button:disabled { opacity: .55; filter: grayscale(.5); cursor: default; }
+      .twc button.link { border: 0; background: none; padding: 0; color: #5b3a12; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }
+      .twc button.link:disabled { opacity: .5; cursor: default; }
+      .twc button.x { border: 0; background: none; color: #8b0000; font: bold 16px Arial, sans-serif; cursor: pointer; padding: 0 4px; }
+      /* Výber ako herný combobox; pôvodný <select> ostáva skrytý ako model. */
+      .twc select.twc-skinned { display: none; }
+      .twc input.twc-skinned-num { width: 52px; border: 0; background: transparent; text-align: right; -moz-appearance: textfield; }
+      .twc input.twc-skinned-num::-webkit-inner-spin-button, .twc input.twc-skinned-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .twc input.twc-skinned-check { display: none; }
+      .twc .tw2gui_checkbox { display: inline-block; vertical-align: middle; cursor: pointer; }
+      .twc .tw2gui_checkbox.twc-disabled { opacity: .5; cursor: default; }
+      /* Tabuľky ako herná fancytable. */
+      .twc .twc-ft { position: relative; height: auto !important; margin: 4px 0 10px; }
+      .twc .twc-ft > .trows, .twc .twc-ft > .trows > .tbody { position: relative; height: auto !important; top: auto !important; bottom: auto !important; }
+      .twc .twc-ft > .trows > .tbody { padding: 0 7px 7px; }
+      .twc table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .twc table thead th { background: ${img('table/table_thead.jpg?3')} 50% 100%; height: 30px; padding: 0 6px; text-align: left;
+        font-weight: 700; white-space: nowrap; color: #000; }
+      .twc table tbody tr { background: ${img('table/table_row.png')} 50% 0 repeat-x; }
+      .twc table td { padding: 3px 5px; height: 24px; vertical-align: middle; }
+      .twc td.job { white-space: nowrap; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+      .twc td.n, .twc th.n { text-align: right; white-space: nowrap; }
+      .twc tr.na td { background: rgba(160, 30, 20, .14); }
+      .twc td.miss { color: #8b0000; font-weight: bold; }
+      .twc tr.ok td.miss, .twc td.ok { color: #2f6b1f; font-weight: bold; }
+      .twc tfoot td { font-weight: bold; border-top: 1px solid #8b6b3f; height: 26px; }
+      .twc .job small { display: block; color: #5b4a35; font-size: 10px; line-height: 11px; overflow: hidden; text-overflow: ellipsis; }
+      .twc .tag { font-size: 11px; color: #6b5a40; font-style: italic; }
+      .twc .badge { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; background: #8b0000; color: #fff; margin-left: 4px; }
+      .twc .twc-ico { display: inline-block; width: 24px; height: 24px; margin-right: 6px; vertical-align: middle; background: center / contain no-repeat; }
+      .twc .sum { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 4px 6px 2px; }
+      .twc .sum div { font-size: 13px; }
+      .twc .sum b { font: bold 18px Georgia, 'Times New Roman', serif; color: #5b3a12; margin-left: 6px; }
+      .twc .sum .bad b { color: #8b0000; }
+      .twc details { margin-top: 6px; }
+      .twc summary { cursor: pointer; font-weight: bold; }
+      .twc h4 { margin: 10px 0 4px; font: bold 14px Georgia, 'Times New Roman', serif; color: #3b2a14; }
+      .twc #twc-team .players { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 10px; }
+      .twc #twc-team .players label, .twc #twc-team .share { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+      .twc #twc-team .share { margin-bottom: 8px; }
+      .twc #twc-team .goaladd { margin-top: 8px; }
+      .twc .goal { background: ${img('groupframe/groupframe_bg.jpg?12')}; border: 1px solid #a8885a; border-radius: 4px;
+        padding: 8px 10px; margin: 8px 0; box-shadow: inset 0 0 6px rgba(90, 60, 20, .25); }
+      .twc details.goal > summary { list-style: none; cursor: pointer; font-weight: normal; }
+      .twc details.goal > summary::-webkit-details-marker { display: none; }
+      .twc details.goal > summary .goalhead b:first-child::before { content: '▸ '; color: #5b3a12; }
+      .twc details.goal[open] > summary .goalhead b:first-child::before { content: '▾ '; }
+      .twc .goalhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+      .twc .goalhead .pct { font: bold 15px Georgia, serif; color: #5b3a12; }
+      .twc .bar { display: block; height: 8px; background: rgba(90, 60, 20, .2); border: 1px solid #8b6b3f; border-radius: 4px; overflow: hidden; margin: 5px 0 2px; }
+      .twc .bar i { display: block; height: 100%; background: linear-gradient(#d29b4c, #9b6424); }
+      .twc .bar.done i { background: linear-gradient(#7fb35a, #3f7a24); }
+      .twc td.prog { min-width: 90px; }
+      .twc td.prog .bar { margin: 2px 0 0; }
+      .twc td.prog small { color: #5b4a35; font-size: 10px; }
+      .twc .claim small { color: #3b2a14; font-size: 11px; }
+      .twc .claimline { font-size: 11px; color: #5b4a35; margin-top: 2px; }
+      .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
+      .twc table.comp { margin-top: 6px; }
+      .twc table.comp td { padding: 2px 6px; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Herné ovládacie prvky: po každom vykreslení sa <button>, <select>, čísla, zaškrtávacie políčka a tabuľky
+  // oblečú do vzhľadu hry. Logika ostáva na pôvodných prvkoch (value, checked, udalosti).
+  const gui = () => game.west?.gui;
+  let skinning = false;
+  function skinButton(btn) {
+    if (!btn.classList.contains('btn')) return;
+    const label = btn.querySelector(':scope > .textart_title')?.textContent ?? btn.textContent;
+    if (btn.classList.contains('tw2gui_button') && btn.querySelector(':scope > .textart_title') && btn.dataset.twcLabel === label) return;
+    btn.classList.add('tw2gui_button');
+    btn.innerHTML = '<div class="tw2gui_button_right_cap"></div><div class="tw2gui_button_left_cap"></div>' +
+      '<div class="tw2gui_button_middle_bg"></div><div class="textart_title"></div>';
+    btn.querySelector('.textart_title').textContent = label;
+    btn.dataset.twcLabel = label;
+  }
+  function skinSelect(sel) {
+    const G = gui();
+    if (!G?.Combobox) return;
+    const opts = [...sel.querySelectorAll('optgroup, option')];
+    const sig = opts.map(o => (o.tagName === 'OPTGROUP' ? `#${o.label}` : `${o.value}=${o.textContent}`)).join('|') + '@' + sel.value + (sel.disabled ? '!' : '');
+    const face = sel.nextElementSibling?.classList?.contains('tw2gui_combobox') ? sel.nextElementSibling : null;
+    if (face && face.dataset.twcSig === sig) return;
+    const combo = new G.Combobox();
+    let building = true;
+    for (const o of opts) {
+      if (o.tagName === 'OPTGROUP') combo.addItem('', `<b>${escapeHtml(o.label)}</b>`);
+      else combo.addItem(o.value, escapeHtml(o.textContent));
+    }
+    if (opts.some(o => o.tagName === 'OPTION' && o.value === sel.value)) combo.select(sel.value);
+    combo.addListener(value => {
+      if (building || value === '' && sel.querySelector('optgroup')) return;
+      if (String(value) === sel.value) return;
+      sel.value = String(value);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    building = false;
+    const el = combo.getMainDiv();
+    const node = el.jquery ? el[0] : el;
+    node.dataset.twcSig = sig;
+    if (sel.title) node.title = sel.title;
+    const width = sel.id === 'twc-product' ? 330 : sel.id === 'twc-goalitem' ? 250 : 150;
+    try { combo.setWidth(width); } catch { /* staršia hra */ }
+    sel.classList.add('twc-skinned');
+    if (face) face.replaceWith(node); else sel.after(node);
+  }
+  function skinNumber(input) {
+    if (input.classList.contains('twc-skinned-num')) return;
+    const wrap = document.createElement('span');
+    wrap.className = 'tw2gui_textfield_wrapper';
+    wrap.innerHTML = '<span class="tw2gui_textfield"><span></span></span>';
+    input.before(wrap);
+    wrap.querySelector('.tw2gui_textfield > span').appendChild(input);
+    input.classList.add('twc-skinned-num');
+  }
+  function skinCheckbox(input) {
+    let face = input.previousElementSibling?.classList?.contains('tw2gui_checkbox') ? input.previousElementSibling : null;
+    if (!face) {
+      face = document.createElement('span');
+      face.className = 'tw2gui_checkbox';
+      face.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!input.disabled) input.click();
+      });
+      input.before(face);
+      input.classList.add('twc-skinned-check');
+    }
+    face.classList.toggle('tw2gui_checkbox_checked', input.checked);
+    face.classList.toggle('twc-disabled', input.disabled);
+  }
+  function skinTable(table) {
+    if (table.parentElement?.classList.contains('tbody')) return;
+    const shell = document.createElement('div');
+    shell.className = 'fancytable twc-ft';
+    shell.innerHTML = '<div class="_bg tw2gui_bg_tl"></div><div class="_bg tw2gui_bg_tr"></div><div class="_bg tw2gui_bg_bl"></div>' +
+      '<div class="_bg tw2gui_bg_br"></div><div class="trows"><div class="tbody"><div class="_bg tw2gui_bg_l"></div><div class="_bg tw2gui_bg_r"></div></div></div>';
+    table.before(shell);
+    shell.querySelector('.tbody').appendChild(table);
+  }
+  function skin() {
+    if (skinning || !gui()?.Button) return;
+    skinning = true;
+    try {
+      root.querySelectorAll('button.btn').forEach(skinButton);
+      root.querySelectorAll('select').forEach(skinSelect);
+      root.querySelectorAll('input[type=number]').forEach(skinNumber);
+      root.querySelectorAll('input[type=checkbox]').forEach(skinCheckbox);
+      root.querySelectorAll('table').forEach(skinTable);
+      scrollpane?.onResized?.();
+    } catch (e) {
+      console.warn('TW kalkulačka: vzhľad', e);
+    } finally {
+      skinning = false;
+    }
+  }
+  new MutationObserver(() => { if (!skinning) queueMicrotask(skin); })
+    .observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'checked'] });
+  root.addEventListener('change', event => {
+    if (event.target.matches?.('input[type=checkbox]')) skinCheckbox(event.target);
+  });
+
   let message = { text: '', error: false };
 
   function setMessage(text, error = false) {
@@ -1034,8 +1115,8 @@
       <div class="muted">${t('goalsNote')}</div>
       ${goalTable}
       <div class="row goaladd">
-        <select id="goalitem" aria-label="${t('item')}">${itemOptions()}</select>
-        <input id="goaltarget" type="number" min="1" step="1" value="100" aria-label="${t('goalTarget')}">
+        <select id="twc-goalitem" aria-label="${t('item')}">${itemOptions()}</select>
+        <input id="twc-goaltarget" type="number" min="1" step="1" value="100" aria-label="${t('goalTarget')}">
         <button class="btn" type="button" data-team="goal" ${teamBusy ? 'disabled' : ''}>${t('addGoal')}</button>
       </div>`;
   }
@@ -1043,17 +1124,19 @@
   let tab = GM_getValue('tab', 'plan');
   function renderTabs() {
     $('tabplan').textContent = t('myPlan');
-    for (const b of pui.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    for (const b of panelSel('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     $('pane-plan').hidden = tab !== 'plan';
     $('pane-team').hidden = tab !== 'team';
+    if (win) {
+      try {
+        win.renameTab?.('plan', $('tabplan').textContent);
+        win.renameTab?.('team', $('tabteam').textContent);
+        if (win.currentActiveTabId !== tab) win.activateTab(tab);
+      } catch { /* starší klient bez premenovania záložiek */ }
+    }
   }
 
   function renderLabels() {
-    $('title').textContent = t('title');
-    $('close').title = t('close');
-    $('close').setAttribute('aria-label', t('close'));
-    $('min').title = t(panel.classList.contains('min') ? 'restore' : 'minimize');
-    $('min').setAttribute('aria-label', $('min').title);
     $('lcat').textContent = t('category');
     $('lprof').textContent = t('lprof');
     $('lprod').textContent = t('product');
@@ -1062,12 +1145,13 @@
     $('foot').textContent = t('foot');
     openButton.title = t('icon');
     openButton.setAttribute('aria-label', t('icon'));
-    panel.setAttribute('aria-label', t('title'));
-    for (const b of pui.querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    root.setAttribute('aria-label', t('title'));
+    if (win) { try { win.setTitle(t('title')); win.setMiniTitle(t('title')); } catch { /* ignorovať */ } }
+    for (const b of panelSel('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
   }
 
   function renderAll() {
-    if (panel.hidden) return;
+    if (!isOpen()) return;
     renderLabels();
     renderStatus();
     renderSelects();
@@ -1075,192 +1159,82 @@
     renderTeam();
     renderResults();
     renderTabs();
+    skin();
   }
 
   function L() { return lang === 'sk' ? 0 : 1; }
 
-  // Panel sa vojde do voľného miesta hry a neprekrýva horný a dolný panel, postavu, chat,
-  // minimapu ani menu. Prepočíta sa pri otvorení a pri zmene veľkosti okna.
-  const GAP = 8;
-  const MAX_WIDTH = 900;
-  const MIN_WIDTH = 520;
-  const MIN_HEIGHT = 300;
-  const MAX_HEIGHT = 680;
+  // ---------- Okno hry ----------
+  // V hre: okno cez wman (rám, titulok, záložky, zbalenie, zatvorenie a presúvanie robí hra).
+  // Bez herného okna (napríklad v testoch): obyčajný kontajner v stránke.
+  const WIN_ID = 'twcalc';
+  let win = null;
+  let scrollpane = null;
+  let fallback = null;
+  const canUseGameWindow = () => !!(game.wman?.open && gui()?.Window && gui()?.Scrollpane);
+  const isOpen = () => (win ? !!game.wman?.getById?.(WIN_ID) : !!fallback && !fallback.hidden);
 
-  function hudRect(id) {
-    const el = document.getElementById(id);
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 ? r : null;
-  }
-  const edge = (ids, pick, fallback, better) => ids.map(hudRect).filter(Boolean)
-    .reduce((acc, r) => better(acc, pick(r)), fallback);
-  const lowest = (ids, fallback) => edge(ids, r => r.bottom, fallback, Math.max);
-  const highest = (ids, fallback) => edge(ids, r => r.top, fallback, Math.min);
-  const rightmost = (ids, fallback) => edge(ids, r => r.right, fallback, Math.max);
-  const leftmost = (ids, fallback) => edge(ids, r => r.left, fallback, Math.min);
-
-  function freeArea() {
-    const vw = document.documentElement.clientWidth || window.innerWidth;
-    const vh = document.documentElement.clientHeight || window.innerHeight;
-    const topBars = ['ui_topbar', 'buffbars'];
-    const area = (left, top, right, bottom) => ({
-      left: Math.max(GAP, left), top: Math.max(GAP, top),
-      right: Math.min(vw - GAP, right), bottom: Math.min(vh - GAP, bottom)
-    });
-    const candidates = [
-      // 1. Stredný stĺpec: medzi postavou/chatom vľavo a minimapou/menu/prácami vpravo.
-      area(rightmost(['ui_character_container', 'ui_bottomleft'], 0) + GAP,
-        lowest(topBars, 0) + GAP,
-        leftmost(['ui_right', 'ui_menubar', 'ui_bottomright'], vw) - GAP,
-        highest(['ui_bottombar'], vh) - GAP),
-      // 2. Celá šírka pod postavou a minimapou, nad chatom a prácami.
-      area(GAP,
-        lowest([...topBars, 'ui_character_container', 'ui_right'], 0) + GAP,
-        leftmost(['ui_menubar'], vw) - GAP,
-        highest(['ui_bottombar', 'ui_bottomleft', 'ui_bottomright'], vh) - GAP),
-      // 3. Malé okno: aspoň pod horným a nad dolným panelom.
-      area(GAP, lowest(topBars, 0) + GAP, vw - GAP, highest(['ui_bottombar'], vh) - GAP)
-    ];
-    const fits = a => a.right - a.left >= MIN_WIDTH && a.bottom - a.top >= MIN_HEIGHT;
-    return candidates.find(fits) || candidates[candidates.length - 1];
-  }
-
-  // Okno sa dá presunúť myšou za hornú lištu; poloha sa zapamätá. Dvojklik na lištu ho vráti na automatické miesto.
-  const viewport = () => ({
-    w: document.documentElement.clientWidth || window.innerWidth,
-    h: document.documentElement.clientHeight || window.innerHeight
-  });
-
-  // Pás, v ktorom sa okno smie pohybovať: pod horným panelom hry a nad dolným panelom.
-  function band() {
-    const { w, h } = viewport();
-    return {
-      left: GAP, right: w - GAP,
-      top: Math.min(h - 60, lowest(['ui_topbar', 'buffbars'], 0) + GAP),
-      bottom: Math.max(60, highest(['ui_bottombar'], h) - GAP)
-    };
+  function openWindow() {
+    if (canUseGameWindow()) {
+      installStyle();
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const vh = document.documentElement.clientHeight || window.innerHeight;
+      win = game.wman.open(WIN_ID, t('title'), 'noreload twcalc-win');
+      win.setMiniTitle(t('title'));
+      win.setSize(Math.max(560, Math.min(820, vw - 40)), Math.max(420, Math.min(600, vh - 140)));
+      scrollpane = new (gui().Scrollpane)();
+      const spEl = scrollpane.getMainDiv();
+      (spEl.jquery ? spEl[0] : spEl).style.height = '100%';
+      root.classList.add('twc-in-window');
+      // Po zatvorení okna hra (jQuery) zmaže obsluhu udalostí herných prvkov; výbery sa preto postavia nanovo.
+      root.querySelectorAll('.tw2gui_combobox').forEach(face => face.remove());
+      scrollpane.appendContent(root);
+      win.appendToContentPane(spEl);
+      win.addTab(t('myPlan'), 'plan', () => { tab = 'plan'; GM_setValue('tab', tab); renderTabs(); skin(); scrollpane?.scrollToTop?.(); });
+      win.addTab(t('team'), 'team', () => { tab = 'team'; GM_setValue('tab', tab); renderTabs(); skin(); scrollpane?.scrollToTop?.(); });
+      try {
+        win.addEventListener(game.TWE ? game.TWE('WINDOW_DESTROY') : 'WINDOW_DESTROY', () => {
+          win = null;
+          scrollpane = null;
+          openButton.setAttribute('aria-expanded', 'false');
+        });
+      } catch { /* bez udalosti zatvorenia */ }
+      win.activateTab(tab);
+      return;
+    }
+    if (!fallback) {
+      fallback = document.createElement('div');
+      fallback.id = 'twcalc-panel';
+      fallback.appendChild(root);
+      document.body.appendChild(fallback);
+    }
+    fallback.hidden = false;
   }
 
-  // Okno má stálu veľkosť podľa obrazovky; pri presúvaní sa mení iba poloha.
-  let size = { w: 860, h: 500 };
-  const minimized = () => panel.classList.contains('min');
-  const panelHeight = () => (minimized() ? panel.offsetHeight : size.h);
-
-  function clampToBand(left, top) {
-    const b = band();
-    return {
-      left: Math.round(Math.min(Math.max(b.left, left), Math.max(b.left, b.right - size.w))),
-      top: Math.round(Math.min(Math.max(b.top, top), Math.max(b.top, b.bottom - panelHeight())))
-    };
+  function closeWindow() {
+    if (win) {
+      const w = win;
+      win = null;
+      scrollpane = null;
+      root.remove();
+      try { (game.wman.getById?.(WIN_ID) || w).destroy(); } catch { /* už zatvorené */ }
+    }
+    if (fallback) fallback.hidden = true;
   }
-
-  function placePanel() {
-    if (panel.hidden) return;
-    const a = freeArea();
-    const b = band();
-    size = {
-      w: Math.round(Math.max(260, Math.min(MAX_WIDTH, a.right - a.left, b.right - b.left))),
-      h: Math.round(Math.max(120, Math.min(MAX_HEIGHT, b.bottom - b.top, Math.max(MIN_HEIGHT, a.bottom - a.top))))
-    };
-    panel.style.width = `${size.w}px`;
-    panel.style.height = minimized() ? '' : `${size.h}px`;
-    panel.style.maxHeight = `${Math.max(120, b.bottom - b.top)}px`;
-    const saved = GM_getValue('pos', null);
-    const want = saved || { left: a.left + Math.max(0, (a.right - a.left - size.w) / 2), top: a.top };
-    const { left, top } = clampToBand(want.left, want.top);
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
-  }
-
-  function setMinimized(on) {
-    panel.classList.toggle('min', on);
-    GM_setValue('min', on);
-    const btn = $('min');
-    btn.textContent = on ? '□' : '–';
-    btn.title = on ? t('restore') : t('minimize');
-    btn.setAttribute('aria-pressed', String(on));
-    placePanel();
-  }
-
-  let drag = null;
-  const header = pui.querySelector('header');
-  header.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || event.target.closest('button')) return;
-    const r = panel.getBoundingClientRect();
-    drag = { dx: event.clientX - r.left, dy: event.clientY - r.top, width: r.width, id: event.pointerId };
-    header.setPointerCapture(event.pointerId);
-    panel.classList.add('dragging');
-    event.preventDefault();
-  });
-  header.addEventListener('pointermove', event => {
-    if (!drag || event.pointerId !== drag.id) return;
-    const { left, top } = clampToBand(event.clientX - drag.dx, event.clientY - drag.dy);
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
-  });
-  const endDrag = event => {
-    if (!drag || event.pointerId !== drag.id) return;
-    drag = null;
-    panel.classList.remove('dragging');
-    GM_setValue('pos', { left: parseFloat(panel.style.left), top: parseFloat(panel.style.top) });
-  };
-  header.addEventListener('pointerup', endDrag);
-  header.addEventListener('pointercancel', endDrag);
-  header.addEventListener('dblclick', event => {
-    if (event.target.closest('button')) return;
-    GM_deleteValue('pos');
-    placePanel();
-  });
-  // Hra po zmene veľkosti okna presúva svoje panely s oneskorením, preto prepočet zopakujeme.
-  let placeTimers = [];
-  window.addEventListener('resize', () => {
-    placePanel();
-    placeTimers.forEach(clearTimeout);
-    placeTimers = [250, 1000].map(ms => setTimeout(placePanel, ms));
-  });
-
-  // Ako herné okná: kliknutie alebo presun dá okno navrch, kliknutie na herné okno ho dá zase pod neho.
-  function mountPanel() {
-    const target = document.getElementById('windows') || document.body;
-    if (panelHost.parentElement !== target) target.appendChild(panelHost);
-  }
-  function raise() {
-    const parent = panelHost.parentElement;
-    if (!parent) return;
-    if (parent === document.body) { panelHost.style.zIndex = '2147483000'; return; }
-    const others = [...parent.children].filter(c => c !== panelHost)
-      .map(c => parseInt(getComputedStyle(c).zIndex, 10) || 0);
-    const highestOther = Math.max(0, ...others);
-    if ((parseInt(panelHost.style.zIndex, 10) || 0) > highestOther) return;
-    const wm = game.wman;
-    const z = Math.max(highestOther, Number(wm?.lastIndex) || 0) + 1;
-    panelHost.style.zIndex = String(z);
-    if (wm && typeof wm.lastIndex === 'number') wm.lastIndex = z;
-  }
-  panel.addEventListener('pointerdown', raise, true);
-  mountPanel();
-  // Poistka: keď hra dá kliknuté okno navrch po svojom, kalkulačka ustúpi pod neho.
-  document.addEventListener('mousedown', event => {
-    const win = event.target?.closest?.('.tw2gui_window');
-    if (!win || panel.hidden || win.parentElement !== panelHost.parentElement) return;
-    setTimeout(() => {
-      const zw = parseInt(getComputedStyle(win).zIndex, 10) || 0;
-      if ((parseInt(panelHost.style.zIndex, 10) || 0) >= zw) panelHost.style.zIndex = String(Math.max(1, zw - 1));
-    }, 0);
-  }, true);
 
   let gameRecipes = 0;
-  function toggle(show = panel.hidden) {
+  function toggle(show = !isOpen()) {
     if (show && !gameRecipes) gameRecipes = mergeGameRecipes(game);
-    if (show) mountPanel();
-    panel.hidden = !show;
+    if (show) {
+      if (!isOpen()) openWindow();
+      else if (win) { try { game.wman.getById(WIN_ID)?.bringToTop?.(); } catch { /* ignorovať */ } }
+    } else {
+      closeWindow();
+    }
     openButton.setAttribute('aria-expanded', String(show));
     if (show) {
-      raise();
       setMessage(message.text, message.error);
       renderAll();
-      setMinimized(!!GM_getValue('min', false));
       autoTeam();
     }
   }
@@ -1274,8 +1248,6 @@
   }
 
   openButton.addEventListener('click', () => toggle());
-  $('close').addEventListener('click', () => toggle(false));
-  $('min').addEventListener('click', () => setMinimized(!minimized()));
   $('refresh').addEventListener('click', refreshRates);
   $('category').addEventListener('change', renderSelects);
   $('profession').addEventListener('change', () => {
@@ -1364,27 +1336,29 @@
     renderTeam();
     renderResults();
   });
-  for (const b of pui.querySelectorAll('[data-tab]')) {
+  for (const b of panelSel('[data-tab]')) {
     b.addEventListener('click', () => {
       tab = b.dataset.tab;
       GM_setValue('tab', tab);
       renderTabs();
+      skin();
     });
   }
-  for (const b of pui.querySelectorAll('[data-lang]')) {
+  for (const b of panelSel('[data-lang]')) {
     b.addEventListener('click', () => {
       lang = b.dataset.lang;
       GM_setValue('lang', lang);
       renderAll();
     });
   }
-  for (const root of [ui, pui]) {
-    root.addEventListener('keydown', event => {
+  // Písanie do polí kalkulačky nesmie spúšťať klávesové skratky hry.
+  for (const el of [ui, root]) {
+    el.addEventListener('keydown', event => {
       if (event.key === 'Escape') toggle(false);
       event.stopPropagation();
     });
-    root.addEventListener('keyup', event => event.stopPropagation());
-    root.addEventListener('keypress', event => event.stopPropagation());
+    el.addEventListener('keyup', event => event.stopPropagation());
+    el.addEventListener('keypress', event => event.stopPropagation());
   }
 
   // Ikona ostáva vľavo od posilňovačov a prémia a posúva sa spolu s ich radom.
