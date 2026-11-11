@@ -61,10 +61,15 @@ Predaj je samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.
   - najvyššiu **rýchlosť** (napríklad +100 % Rýchlosť).
 
   Porovnáva sa batoh aj oblečenie na sebe. Ak je najlepší kus ten, ktorý máš na sebe, z batoha sa nechráni nič. Pod zoznamom je vypísané, čo sa ponechalo ako najlepšie.
-- Ak si v hre otvoril **Šatník**, neponúka sa ani oblečenie z tvojich uložených sád. Inak ťa na to skript upozorní.
+- Predmety zo sád sa poznajú podľa základného predmetu, takže sa chránia aj vylepšené kusy a kusy, pri ktorých hra pole sady nevypĺňa.
+- **Šatník:** keď v hre otvoríš Šatník (uložené sady oblečenia), skript si z odpovede hry zapamätá kusy z tvojich sád a nebude ich ponúkať. Funguje to bez vlastnej požiadavky a pamätá si to natrvalo. Po zmene sád otvor Šatník znova.
 - Odškrtnutá vec sa tentoraz nepredá. Tlačidlom **nepredávať** ju vylúčiš natrvalo (zoznam sa dá vymazať).
 - **Predať** pri položke predá celý kus alebo stoh obchodníkovi. **Predať označené v záložke** predá všetko označené v otvorenej záložke. Vždy sa najprv pýta na potvrdenie, lebo predaj sa nedá vrátiť.
-- Každá predaná položka je jedna požiadavka na server, rovnako ako pri predaji v hre. Pri „Predať označené“ idú postupne, jedna za 1,2 sekundy, a dajú sa zastaviť. Pri chybe obchodníka sa predaj zastaví.
+- Každá predaná položka je jedna požiadavka na server, rovnako ako pri predaji v hre. Pri „Predať označené“ sa predáva pomaly, aby to hra zvládla:
+  - tempo sa dá zvoliť: 1 predaj za 3, 5 alebo 8 sekúnd;
+  - po každých 15 predajoch je 30-sekundová prestávka;
+  - pri chybe skript počká 20 sekúnd a skúsi to ešte raz, pri druhej chybe sa predaj zastaví;
+  - predaj sa dá kedykoľvek zastaviť.
 
 ## Zaťaženie herného servera
 
