@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.1.0
+// @version      1.2.0
 // @description  Zoznam oblečenia a zbraní z batoha, ktoré nepotrebuješ, po záložkách a s cenou. Sady, pomenované, vylepšené a najlepšie kusy na HP a rýchlosť sa neponúkajú. Produkty sa nepredávajú. Predaj obchodníkovi po potvrdení.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -37,8 +37,10 @@
       kept: 'Ponechané', keep: 'nepredávať', resetKeep: 'Vymazať zoznam „nepredávať“',
       gear: 'Oblečenie a zbrane', goods: 'Produkty', item: 'Predmet', qty: 'Počet', piece: 'za kus', sum: 'Spolu', level: 'level',
       none: 'Nič na predaj.',
-      equipHint: 'Tip: otvor v hre Šatník (uložené sady oblečenia). Potom sa nebude ponúkať oblečenie z tvojich sád, napríklad sada na nálezku.',
-      equipKnown: n => `Oblečenie z ${n} uložených sád sa nepredáva.`,
+      equipHint: 'Tip: otvor v hre Šatník (uložené sady oblečenia) a pozri si svoje sady. Skript si ich zapamätá a oblečenie z nich nebude ponúkať, napríklad sadu na nálezku.',
+      equipKnown: n => `Zo Šatníka si skript pamätá ${n} ks oblečenia, tie sa nepredávajú. Po zmene sád otvor Šatník znova.`,
+      pace: 'Tempo', paceOpt: n => `1 predaj za ${n} s`, pause: n => `Prestávka, pokračujem o ${n} s…`, retry: n => `Hra neodpovedala, skúsim znova o ${n} s…`,
+      paceNote: 'Predáva sa pomaly a po dávkach (15 kusov, potom 30 s prestávka), aby to hra zvládla. Pri chybe skript počká a skúsi to ešte raz.',
       why: { keep: 'nepredávať', named: 'pomenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úlohy', nosell: 'nepredajné',
         goods: 'produkty a ostatné', craft: 'remeslo', equip: 'v sadách', hp: 'najviac HP', ride: 'najlepšia jazda', speed: 'najvyššia rýchlosť' }
     },
@@ -56,8 +58,10 @@
       kept: 'Ponechané', keep: 'neprodávat', resetKeep: 'Vymazat seznam „neprodávat“',
       gear: 'Oblečení a zbraně', goods: 'Produkty', item: 'Předmět', qty: 'Počet', piece: 'za kus', sum: 'Celkem', level: 'level',
       none: 'Nic na prodej.',
-      equipHint: 'Tip: otevři ve hře Šatník (uložené sady oblečení). Pak se nebude nabízet oblečení z tvých sad, například sada na nález.',
-      equipKnown: n => `Oblečení z ${n} uložených sad se neprodává.`,
+      equipHint: 'Tip: otevři ve hře Šatník (uložené sady oblečení) a podívej se na své sady. Skript si je zapamatuje a oblečení z nich nebude nabízet, například sadu na nález.',
+      equipKnown: n => `Ze Šatníku si skript pamatuje ${n} ks oblečení, ty se neprodávají. Po změně sad otevři Šatník znovu.`,
+      pace: 'Tempo', paceOpt: n => `1 prodej za ${n} s`, pause: n => `Přestávka, pokračuji za ${n} s…`, retry: n => `Hra neodpověděla, zkusím znovu za ${n} s…`,
+      paceNote: 'Prodává se pomalu a po dávkách (15 kusů, pak 30 s přestávka), aby to hra zvládla. Při chybě skript počká a zkusí to ještě jednou.',
       why: { keep: 'neprodávat', named: 'pojmenované', set: 'sady', upgraded: 'vylepšené', unique: 'jedinečné', quest: 'úkoly', nosell: 'neprodejné',
         goods: 'produkty a ostatní', craft: 'řemeslo', equip: 'v sadách', hp: 'nejvíce HP', ride: 'nejlepší jízda', speed: 'nejvyšší rychlost' }
     }
@@ -132,7 +136,12 @@
     }
     return best;
   }
-  const SELL_GAP_MS = 1200;
+  // Tempo predaja: hra nezvláda veľa predajov rýchlo za sebou, preto pomaly, po dávkach a s opakovaním.
+  const PACES = [3, 5, 8];          // sekundy medzi predajmi (voľba v okne)
+  const BATCH = 15;                 // po každých 15 predajoch prestávka
+  const BATCH_PAUSE_S = 30;
+  const RETRY_WAIT_S = 20;          // pri chybe počkať a skúsiť ešte raz
+  let SELL_GAP_MS = null;           // iba pre testy; inak podľa zvoleného tempa
 
   // Všetko, čo súvisí s remeslami: výrobky receptov a ich suroviny (z receptov v ItemManageri).
   let craftCache = null;
@@ -150,31 +159,99 @@
     return ids;
   }
 
-  // Oblečenie z uložených sád (Šatník), ak ich hra už načítala.
+  // Všetky predmety, ktoré patria do nejakej sady v hre (podľa základného predmetu, teda aj vylepšené kusy).
+  let setCache = null;
+  function setBases() {
+    if (setCache) return setCache;
+    const bases = new Set();
+    try {
+      for (const o of Object.values(game.ItemManager?.getAll?.() || {})) {
+        if (o?.set) bases.add(Number(o.item_base_id) || Math.floor(Number(o.item_id) / 1000));
+      }
+      const M = game.west?.storage?.ItemSetManager;
+      const sets = M?.getAll?.() || M?._setList || M?.sets;
+      if (sets && typeof sets === 'object') {
+        for (const set of Object.values(sets)) {
+          const items = set?.items || set?.itemIds || set?.item_ids || (typeof set?.getItems === 'function' ? set.getItems() : null);
+          for (const i of Array.isArray(items) ? items : []) {
+            const id = Number(i?.item_id ?? i);
+            if (id) bases.add(id >= 1000 ? Math.floor(id / 1000) : id);
+          }
+        }
+      }
+    } catch { /* aspoň pole set pri predmete */ }
+    if (bases.size) setCache = bases;
+    return bases;
+  }
+  const baseOf = o => Number(o.item_base_id) || Math.floor(Number(o.item_id) / 1000);
+
+  // Uložené sady oblečenia (Šatník). Keď ich hra načíta (otvorením Šatníka), skript si ich zapamätá – bez vlastnej požiadavky.
+  const OUTFIT_KEYS = new Set([...['head', 'neck', 'body', 'belt', 'pants', 'foot', 'right_arm', 'left_arm', 'animal', 'yield']]);
+  const outfitKey = ch => `${P}outfits:${ch.key}`;
+  function outfitIds(data) {
+    const ids = new Set();
+    const walk = (v, key) => {
+      if (Array.isArray(v)) { for (const x of v) walk(x, key); return; }
+      if (v && typeof v === 'object') {
+        if (OUTFIT_KEYS.has(key) && Number(v.item_id)) ids.add(Number(v.item_id));
+        for (const [k, x] of Object.entries(v)) walk(x, k);
+        return;
+      }
+      const n = Number(v);
+      if (OUTFIT_KEYS.has(key) && Number.isInteger(n) && n >= 1000) ids.add(n);
+    };
+    walk(data, '');
+    return ids;
+  }
+  function rememberOutfits(data) {
+    const ch = character();
+    if (!ch) return;
+    const ids = outfitIds(data);
+    if (!ids.size) return;
+    const saved = GM_getValue(outfitKey(ch), { ids: [] });
+    const all = new Set([...(saved.ids || []), ...ids]);
+    GM_setValue(outfitKey(ch), { ids: [...all], ts: Date.now() });
+  }
+  // Odpovede hry na Šatník si len prečítame (žiadna požiadavka navyše).
+  function hookOutfits() {
+    const Ajax = game.Ajax;
+    if (!Ajax || Ajax.__twsellHooked) return;
+    for (const fn of ['remoteCall', 'remoteCallMode']) {
+      const orig = Ajax[fn];
+      if (typeof orig !== 'function') continue;
+      Ajax[fn] = function (win, action, params, cb, ...rest) {
+        if (win === 'inventory' && /equip/.test(String(action)) && typeof cb === 'function') {
+          const done = cb;
+          cb = function (resp) {
+            try { rememberOutfits(resp); } catch { /* ignorovať */ }
+            return done.apply(this, arguments);
+          };
+        }
+        return orig.call(this, win, action, params, cb, ...rest);
+      };
+    }
+    Ajax.__twsellHooked = true;
+  }
   function equipItems() {
+    const ch = character();
+    const ids = new Set(ch ? GM_getValue(outfitKey(ch), { ids: [] }).ids || [] : []);
     const list = game.EquipManager?.list;
     const sets = Array.isArray(list) ? list : (list && typeof list === 'object' ? Object.values(list) : []);
-    const ids = new Set();
-    const collect = v => {
-      if (v && typeof v === 'object') { for (const x of Object.values(v)) collect(x); return; }
-      const n = Number(v);
-      if (Number.isInteger(n) && n >= 1000) ids.add(n);
-    };
-    for (const set of sets) collect(set);
-    return { ids, count: sets.length };
+    for (const id of outfitIds(sets)) ids.add(id);
+    return { ids, count: ids.size };
   }
 
   function reason(o, ctx) {
     if (!GEAR.has(o.type)) return 'goods';
     if (ctx.keep.has(o.item_id)) return 'keep';
     if (o.named) return 'named';
-    if (o.set) return 'set';
+    if (o.set || ctx.sets.has(baseOf(o))) return 'set';
     if (Number(o.item_level) > 0) return 'upgraded';
     if (o.unique) return 'unique';
     if (o.quest) return 'quest';
     if (!o.sellable || !(Number(o.sell_price) > 0)) return 'nosell';
     if (ctx.craft.has(o.item_id)) return 'craft';
-    if (ctx.equip.has(o.item_id)) return 'equip';
+    if (ctx.equip.has(o.item_id) || ctx.equipBase.has(baseOf(o))) return 'equip';
     if (ctx.best.has(o.item_id)) return ctx.best.get(o.item_id);
     return null;
   }
@@ -187,7 +264,8 @@
     const equip = equipItems();
     const bagItems = Object.values(bag.items_by_id).filter(it => it?.obj && Number(it.count) > 0);
     const best = bestItems(bagItems.filter(it => GEAR.has(it.obj.type)));
-    const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), craft: craftItems(), equip: equip.ids, best };
+    const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), craft: craftItems(), equip: equip.ids,
+      equipBase: new Set([...equip.ids].map(id => Math.floor(id / 1000))), sets: setBases(), best };
     const items = [];
     const kept = {};
     const bestKept = [];
@@ -250,6 +328,7 @@
     td.n, th.n { text-align: right; white-space: nowrap; }
     tr.off td { color: #a08a6a; }
     .lvl { font-size: 11px; color: #8a7558; }
+    select { border: 1px solid #b89a63; border-radius: 3px; background: #fffaf0; color: #4a2f17; padding: 2px 4px; }
     .slots { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
     .slots button { border: 1px solid #7a4e2d; border-radius: 12px; padding: 3px 10px; cursor: pointer; background: #e8dcc0; color: #4a2f17; font-weight: bold; }
     .slots button[aria-selected="true"] { background: #4a2f17; color: #f2dfa7; }
@@ -301,7 +380,7 @@
     const chosenSum = chosen.reduce((a, x) => a + x.sum, 0);
     const allSum = data.items.reduce((a, x) => a + x.sum, 0);
     const busy = !!selling;
-    const msg = selling ? t('selling')(selling.done + 1, selling.total) : message.text;
+    const msg = selling ? (selling.note || t('selling')(selling.done + 1, selling.total)) : message.text;
     const count = slot => data.items.filter(x => slot === 'all' || x.type === slot).length;
     const tabs = ['all', ...SLOTS].filter(slot => slot === 'all' || slot === slotTab || count(slot) > 0).map(slot => `<button type="button" role="tab" data-slot="${slot}" aria-selected="${slot === slotTab}">
         ${slot === 'all' ? t('all') : t('slots')[slot]} <span class="cnt">${fmt(count(slot))}</span></button>`).join('');
@@ -324,6 +403,7 @@
       <div class="card row bar">
         <span class="grow">${t('total')}: <b>${fmt(shown.length)}</b> · ${t('selected')}: <b>${fmt(chosen.length)}</b> = <b>${money(chosenSum)}</b>
           ${slotTab === 'all' ? '' : `<span class="muted">(${t('all').toLowerCase()}: ${fmt(data.items.length)} = ${money(allSum)})</span>`}</span>
+        <label class="muted">${t('pace')} <select data-pace ${busy ? 'disabled' : ''}>${PACES.map(n => `<option value="${n}" ${n === pace() ? 'selected' : ''}>${t('paceOpt')(n)}</option>`).join('')}</select></label>
         ${busy ? `<button class="btn" type="button" data-stop>${t('stop')}</button>`
           : `<button class="btn" type="button" data-sellall ${chosen.length ? '' : 'disabled'}>${t('sellAll')}</button>`}
       </div>
@@ -331,6 +411,7 @@
       ${shown.length ? body : `<p class="muted">${t('none')}</p>`}
       ${bestHere.length ? `<p class="muted">${t('best')}: ${bestHere.map(b => `${escapeHtml(b.name)} <i>(${bestLabel[b.why]})</i>`).join(' · ')}</p>` : ''}
       <p class="muted">${t('kept')}: ${keptText || '–'}</p>
+      <p class="muted">${t('paceNote')}</p>
       <p class="muted">${data.equipSets ? t('equipKnown')(data.equipSets) : t('equipHint')}</p>
       ${data.keep.size ? `<button class="link" type="button" data-keepreset ${busy ? 'disabled' : ''}>${t('resetKeep')} (${fmt(data.keep.size)})</button>` : ''}`;
   }
@@ -360,18 +441,40 @@
     });
   }
 
+  const pace = () => { const p = Number(GM_getValue(P + 'pace', 3)); return PACES.includes(p) ? p : 3; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function countdown(seconds, label) {
+    for (let left = seconds; left > 0 && selling && !selling.stop; left--) {
+      selling.note = label(left);
+      render();
+      await sleep(SELL_GAP_MS ?? 1000);
+    }
+    if (selling) selling.note = '';
+  }
+
   async function sellList(list) {
     if (selling || !list.length) return;
-    selling = { total: list.length, done: 0, sum: 0, stop: false };
+    selling = { total: list.length, done: 0, sum: 0, stop: false, note: '' };
     message = { text: '', error: false };
     render();
     try {
       for (const x of list) {
         if (selling.stop) break;
-        selling.sum += await sellItem(x);
+        let sold;
+        try {
+          sold = await sellItem(x);
+        } catch (first) {
+          // Jedno opakovanie po prestávke; ak zlyhá znova, predaj sa zastaví.
+          await countdown(RETRY_WAIT_S, t('retry'));
+          if (selling.stop) break;
+          sold = await sellItem(x);
+        }
+        selling.sum += sold;
         selling.done++;
         render();
-        if (selling.done < selling.total && !selling.stop) await new Promise(r => setTimeout(r, SELL_GAP_MS));
+        if (selling.done >= selling.total || selling.stop) break;
+        if (selling.done % BATCH === 0) await countdown(BATCH_PAUSE_S, t('pause'));
+        else await (SELL_GAP_MS !== null ? sleep(SELL_GAP_MS) : sleep(pace() * 1000));
       }
       message = { text: t('sold')(selling.done, money(selling.sum)), error: false };
     } catch (e) {
@@ -409,6 +512,7 @@
     }
   });
   $('sell').addEventListener('change', event => {
+    if (event.target.matches?.('[data-pace]')) { GM_setValue(P + 'pace', Number(event.target.value)); render(); return; }
     const box = event.target.closest('[data-pick]');
     if (!box) return;
     const id = Number(box.dataset.pick);
@@ -563,6 +667,8 @@
     return true;
   }
   mountPanel();
+  hookOutfits();
+  setTimeout(hookOutfits, 3000);
   if (!mount()) {
     document.body.appendChild(host);
     const wait = new MutationObserver(() => { if (mount()) wait.disconnect(); });
