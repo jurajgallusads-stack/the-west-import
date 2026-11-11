@@ -16,12 +16,12 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.0.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.1.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
-1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Ďalší klik na ikonu okno zatvorí.
+1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Hore stojí postava s nálezkou a výber výrobku (v záložke Tím zdieľanie a zoznam hráčov). Tabuľky majú pevnú hlavičku a rolujú sa vo vlastnom posuvníku. Ďalší klik na ikonu okno zatvorí.
 2. Pri prvom použití
 3. Vyber remeslo, kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
