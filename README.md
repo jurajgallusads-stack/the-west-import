@@ -42,35 +42,22 @@ Tím má v kalkulačke vlastnú kartu **Tím**, oddelenú od karty **Môj plán*
 
 Tímové údaje idú iba do Google tabuľky (hárky „Tím – batohy“ a „Tím – ciele“): pri otvorení kalkulačky najviac jedna požiadavka a ďalšie len po kliknutí. Na herný server tím neposiela nič.
 
-## Predaj nepotrebných vecí (samostatný skript)
+## Zvýraznenie vecí na predaj (samostatný skript)
 
-Predaj je samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-predaj.user.js). Inštaluje sa rovnako cez Tampermonkey. Má vlastnú ikonu **$** v rade posilňovačov a vlastné okno, ktoré sa presúva, zbaľuje a prekrýva s hernými oknami ako kalkulačka.
+Samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-predaj.user.js). Inštaluje sa rovnako cez Tampermonkey. Skript **nič nepredáva a neposiela žiadnu požiadavku**. Iba ukáže, čo môžeš predať, a predávaš ručne obchodníkovi ako vždy.
 
-- Predáva iba oblečenie a zbrane. **Produkty sa nepredávajú vôbec.**
-- Záložky podľa časti oblečenia: Všetko, Klobúky, Šatky, Oblečenie, Opasky, Nohavice, Topánky, Duelové zbrane a Zbrane do pevnosti. Pri každej je počet kusov. Prázdne záložky sa skrývajú.
-- Zoznam sa zostaví z už načítaného batoha bez požiadavky na server a sám sa prepočíta, keď sa batoh zmení.
-- Nikdy sa neponúka:
+- Ikona **$** v rade posilňovačov zapína a vypína zvýraznenie. Keď je zapnuté, v batohu majú veci na predaj **svetločervené pozadie**. Na ikone je počet takých predmetov a v bublinke pri myši počet kusov, suma a čo ostalo nezvýraznené.
+- Zvýrazňuje sa iba oblečenie a zbrane. **Produkty sa nezvýrazňujú nikdy.**
+- Nezvýrazní sa ani:
   - oblečenie na sebe;
-  - predmety zo sád (napríklad sada bojovníka z truhiel);
-  - pomenované predmety (napríklad Athosov fleret);
-  - vylepšené predmety;
-  - remeselné a nepredajné predmety;
-  - **veci potrebné na úlohy**: 117 predmetov podľa TW-DB (stav 11. 11. 2026), napríklad Černý trojcípý šátek alebo Drahý kovbojský klobouk, vrátane vylepšených kusov.
-- **Najlepšie kusy:** v každej časti oblečenia sa ponechá kus, ktorý dáva:
-  - najviac **HP** (zdravie + sila);
-  - najlepšiu **jazdu na koni** (jazda + obratnosť vrátane bonusov za level);
-  - najvyššiu **rýchlosť** (napríklad +100 % Rýchlosť).
-
-  Porovnáva sa batoh aj oblečenie na sebe. Ak je najlepší kus ten, ktorý máš na sebe, z batoha sa nechráni nič. Pod zoznamom je vypísané, čo sa ponechalo ako najlepšie.
-- Predmety zo sád sa poznajú podľa základného predmetu, takže sa chránia aj vylepšené kusy a kusy, pri ktorých hra pole sady nevypĺňa.
-- **Šatník:** keď v hre otvoríš Šatník (uložené sady oblečenia), skript si z odpovede hry zapamätá kusy z tvojich sád a nebude ich ponúkať. Funguje to bez vlastnej požiadavky a pamätá si to natrvalo. Po zmene sád otvor Šatník znova.
-- Odškrtnutá vec sa tentoraz nepredá. Tlačidlom **nepredávať** ju vylúčiš natrvalo (zoznam sa dá vymazať).
-- **Predať** pri položke predá celý kus alebo stoh obchodníkovi. **Predať označené v záložke** predá všetko označené v otvorenej záložke. Vždy sa najprv pýta na potvrdenie, lebo predaj sa nedá vrátiť.
-- Každá predaná položka je jedna požiadavka na server, rovnako ako pri predaji v hre. Pri „Predať označené“ sa predáva pomaly, aby to hra zvládla:
-  - tempo sa dá zvoliť: 1 predaj za 3, 5 alebo 8 sekúnd;
-  - po každých 15 predajoch je 30-sekundová prestávka;
-  - pri chybe skript počká 20 sekúnd a skúsi to ešte raz, pri druhej chybe sa predaj zastaví;
-  - predaj sa dá kedykoľvek zastaviť.
+  - predmety zo sád, aj vylepšené kusy;
+  - **veci potrebné na úlohy** (117 predmetov podľa TW-DB, stav 11. 11. 2026);
+  - pomenované a vylepšené predmety;
+  - remeselné a nepredajné predmety.
+- **Najlepšie kusy:** v každej časti oblečenia ostane bez zvýraznenia kus, ktorý dáva najviac **HP** (zdravie + sila), najlepšiu **jazdu na koni** (jazda + obratnosť) a najvyššiu **rýchlosť**. Porovnáva sa batoh aj to, čo máš na sebe.
+- **Šatník:** keď ho v hre raz otvoríš, skript si z odpovede hry zapamätá kusy z tvojich uložených sád a nebude ich zvýrazňovať.
+- **Alt + klik** na predmet v batohu prepína „nepredávať“, takže ho skript prestane zvýrazňovať (alebo znova začne).
+- Po predaji, nákupe alebo práci sa zvýraznenie samo prepočíta.
 
 ## Zaťaženie herného servera
 
