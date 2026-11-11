@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.0.0
+// @version      3.1.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -588,6 +588,7 @@
     <div id="twc-bagwarn" class="twc-warn" hidden></div>
     <div id="twc-pane-team" hidden><div id="twc-team"></div></div>
     <div id="twc-pane-plan">
+      <div class="twc-plan-top">
       ${groupframe(`<div class="row twc-status"><span id="twc-who" class="grow"></span><span class="twc-langs"><button type="button" data-lang="sk">SK</button><button type="button" data-lang="cz">CZ</button></span><button id="twc-refresh" class="btn" type="button"></button></div>`)}
       <div id="twc-message" class="muted" aria-live="polite"></div>
       <div class="row twc-add">
@@ -598,6 +599,7 @@
         <label class="grow"><span id="twc-lprod" class="twc-hidden-label"></span><select id="twc-product"></select></label>
         <label><span id="twc-lqty" class="twc-hidden-label"></span><input id="twc-qty" type="number" min="1" step="1" value="1"></label>
         <button id="twc-add" class="btn" type="button"></button>
+      </div>
       </div>
       <div id="twc-plan"></div>
       <div id="twc-summary" class="sum"></div>
@@ -624,8 +626,22 @@
       .twc .twc-warn { background: rgba(160, 30, 20, .12); border: 1px solid #a0522d; color: #6b1a0a; padding: 6px 10px; margin: 4px 0 8px; border-radius: 3px; }
       .twc .twc-gf { margin: 2px 0 8px; height: auto !important; position: relative; }
       .twc .twc-gf .tw2gui_groupframe_content_pane { position: relative; height: auto !important; padding: 6px 10px; }
-      /* Pozadie okna hry je obrázok s pevnou výškou; pri väčšom okne ho opakujeme, aby nevznikla medzera. */
-      .twcalc-win .tw2gui_window_inset { background-repeat: repeat !important; }
+      /* Pozadie okna hry je jeden obrázok s pevnou veľkosťou; roztiahne sa na celé okno (bez skladania). */
+      .twcalc-win .tw2gui_window_inset { background-size: 100% 100% !important; background-repeat: no-repeat !important; background-position: 0 0 !important; }
+      /* Rozloženie v okne: horná časť (postava, výber; pri tíme zdieľanie a hráči) stojí, tabuľky sa rolujú samy. */
+      .twc.twc-in-window { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; padding: 14px 8px 6px; }
+      .twc.twc-in-window > #twc-pane-plan, .twc.twc-in-window > #twc-pane-team { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .twc.twc-in-window .twc-plan-top, .twc.twc-in-window #twc-plan, .twc.twc-in-window #twc-summary,
+      .twc.twc-in-window .twc-foot, .twc.twc-in-window #twc-bagwarn, .twc.twc-in-window #twc-message { flex: none; }
+      .twc.twc-in-window #twc-results { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .twc.twc-in-window #twc-results > .twc-ft-fill { flex: 1; min-height: 150px; }
+      .twc.twc-in-window #twc-results > details { flex: none; }
+      .twc.twc-in-window #twc-team { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0; }
+      .twc.twc-in-window .twc-team-top, .twc.twc-in-window #twc-team .goaladd { flex: none; }
+      .twc.twc-in-window .twc-team-top { border-bottom: 1px solid rgba(110, 80, 40, .35); padding-bottom: 4px; }
+      .twc.twc-in-window .twc-team-goals { flex: 1; min-height: 0; position: relative; }
+      .twc .twc-goals-inner { padding-right: 6px; }
+      .twc .twc-foot { font-size: 11px; margin-top: 6px; }
       .twc .twc-status { min-height: 36px; }
       .twc .twc-add { margin: 6px 2px; }
       .twc .twc-add label { display: inline-flex; align-items: center; gap: 6px; }
@@ -649,18 +665,33 @@
       .twc input.twc-skinned-num { width: 52px; border: 0; background: transparent; text-align: right; -moz-appearance: textfield; }
       .twc input.twc-skinned-num::-webkit-inner-spin-button, .twc input.twc-skinned-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
       .twc input.twc-skinned-check { display: none; }
-      .twc .tw2gui_checkbox { display: inline-block; vertical-align: middle; cursor: pointer; }
+      .twc div.tw2gui_checkbox.twc-cb { display: inline-block; width: 20px; height: 20px; padding: 0; margin-right: 4px; vertical-align: middle; cursor: pointer; flex: none; }
       .twc .tw2gui_checkbox.twc-disabled { opacity: .5; cursor: default; }
-      /* Tabuľky ako herná fancytable. */
-      .twc .twc-ft { position: relative; height: auto !important; margin: 4px 0 10px; }
-      .twc .twc-ft > .trows, .twc .twc-ft > .trows > .tbody { position: relative; height: auto !important; top: auto !important; bottom: auto !important; }
-      .twc .twc-ft > .trows > .tbody { padding: 0 7px 7px; }
+      /* Tabuľky ako herná fancytable: rám, záhlavie a riadky z hry, hlavička a päta stoja, telo sa roluje. */
+      .twc .twc-ft { position: relative; height: auto !important; margin: 4px 0 8px; display: flex; flex-direction: column; overflow: hidden; }
+      .twc .twc-ft > .trows { position: relative !important; top: auto !important; bottom: auto !important; left: auto !important;
+        right: auto !important; height: auto !important; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+      .twc .twc-ft > .trows > .thead, .twc .twc-ft > .trows > .tfoot { position: relative !important; height: auto !important;
+        flex: none; padding: 0 9px !important; box-sizing: border-box; }
+      .twc .twc-ft > .trows > .thead { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; padding-top: 6px !important; }
+      .twc .twc-ft > .trows > .tfoot { border-top: 1px solid #8b6b3f; }
+      .twc .twc-ft > .trows > .tbody { position: relative !important; top: auto !important; bottom: auto !important; height: auto !important;
+        flex: 1; min-height: 0; padding: 0 9px 9px; box-sizing: border-box; }
+      .twc .twc-ft-plain > .trows > .tbody { padding-top: 6px; }
+      .twc .twc-ft-body { height: 100%; }
+      .twc .twc-ft-fill .twc-ft-body .tw2gui_scrollpane { height: 100% !important; }
       .twc table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      .twc table thead th { background: ${img('table/table_thead.jpg?3')} 50% 100%; height: 30px; padding: 0 6px; text-align: left;
-        font-weight: 700; white-space: nowrap; color: #000; }
-      .twc table tbody tr { background: ${img('table/table_row.png')} 50% 0 repeat-x; }
-      .twc table td { padding: 3px 5px; height: 24px; vertical-align: middle; }
-      .twc td.job { white-space: nowrap; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+      .twc table.twc-head { table-layout: fixed; }
+      .twc table.twc-head.twc-measure { table-layout: auto; width: auto !important; }
+      .twc table.twc-head.twc-measure th { white-space: nowrap; }
+      .twc table.twc-head th { height: 30px; padding: 4px 8px; text-align: left; font-weight: 700; line-height: 13px; vertical-align: middle; color: #000; }
+      .twc table.twc-foot-t td { height: 28px; padding: 0 8px; font-weight: bold; }
+      .twc table.twc-body > thead > tr, .twc table.twc-body > tfoot > tr { visibility: collapse; }
+      .twc .twc-ft-plain table thead th { background: ${img('table/table_thead.jpg?3')} 50% 100% / 100% 100% no-repeat; height: 30px; padding: 0 8px;
+        text-align: left; font-weight: 700; white-space: nowrap; color: #000; }
+      .twc table tbody tr { background: ${img('table/table_row.png')} 50% 100% / 100% 100% no-repeat; }
+      .twc table tbody td { padding: 6px 8px; height: 20px; line-height: 16px; vertical-align: middle; }
+      .twc td.job { white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
       .twc td.n, .twc th.n { text-align: right; white-space: nowrap; }
       .twc tr.na td { background: rgba(160, 30, 20, .14); }
       .twc td.miss { color: #8b0000; font-weight: bold; }
@@ -692,14 +723,15 @@
       .twc .bar { display: block; height: 8px; background: rgba(90, 60, 20, .2); border: 1px solid #8b6b3f; border-radius: 4px; overflow: hidden; margin: 5px 0 2px; }
       .twc .bar i { display: block; height: 100%; background: linear-gradient(#d29b4c, #9b6424); }
       .twc .bar.done i { background: linear-gradient(#7fb35a, #3f7a24); }
-      .twc td.prog { min-width: 90px; }
+      .twc td.prog { min-width: 70px; }
       .twc td.prog .bar { margin: 2px 0 0; }
       .twc td.prog small { color: #5b4a35; font-size: 10px; }
       .twc .claim small { color: #3b2a14; font-size: 11px; }
       .twc .claimline { font-size: 11px; color: #5b4a35; margin-top: 2px; }
       .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
       .twc table.comp { margin-top: 6px; }
-      .twc table.comp td { padding: 2px 6px; }
+      .twc table.comp td { padding: 4px 8px; }
+      .twc table.comp td:first-child .tag { display: block; line-height: 11px; }
     `;
     document.head.appendChild(style);
   }
@@ -760,8 +792,8 @@
   function skinCheckbox(input) {
     let face = input.previousElementSibling?.classList?.contains('tw2gui_checkbox') ? input.previousElementSibling : null;
     if (!face) {
-      face = document.createElement('span');
-      face.className = 'tw2gui_checkbox';
+      face = document.createElement('div');
+      face.className = 'tw2gui_checkbox twc-cb';
       face.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -773,14 +805,120 @@
     face.classList.toggle('tw2gui_checkbox_checked', input.checked);
     face.classList.toggle('twc-disabled', input.disabled);
   }
+  // Tabuľka ako herná fancytable. Tabuľky s triedou twc-scroll majú pevnú hlavičku (a pätu) a rolujú sa
+  // vo vlastnom hernom posuvníku; poloha posuvníka sa pri prekreslení zachová.
+  const panes = new Map();
   function skinTable(table) {
-    if (table.parentElement?.classList.contains('tbody')) return;
+    if (table.closest('.twc-ft') || table.classList.contains('twc-head')) return;
     const shell = document.createElement('div');
     shell.className = 'fancytable twc-ft';
     shell.innerHTML = '<div class="_bg tw2gui_bg_tl"></div><div class="_bg tw2gui_bg_tr"></div><div class="_bg tw2gui_bg_bl"></div>' +
-      '<div class="_bg tw2gui_bg_br"></div><div class="trows"><div class="tbody"><div class="_bg tw2gui_bg_l"></div><div class="_bg tw2gui_bg_r"></div></div></div>';
+      '<div class="_bg tw2gui_bg_br"></div><div class="trows"><div class="thead statics"></div><div class="tbody">' +
+      '<div class="_bg tw2gui_bg_l"></div><div class="_bg tw2gui_bg_r"></div><div class="twc-ft-body"></div></div>' +
+      '<div class="tfoot statics"></div></div>';
     table.before(shell);
-    shell.querySelector('.tbody').appendChild(table);
+    const body = shell.querySelector('.twc-ft-body');
+    const G = gui();
+    if (!table.classList.contains('twc-scroll') || !G?.Scrollpane) {
+      shell.querySelector('.thead').remove();
+      shell.querySelector('.tfoot').remove();
+      shell.classList.add('twc-ft-plain');
+      body.appendChild(table);
+      return;
+    }
+    if (table.classList.contains('twc-fill')) shell.classList.add('twc-ft-fill');
+    if (table.tHead) {
+      const head = document.createElement('table');
+      head.className = 'twc-head';
+      head.appendChild(table.tHead.cloneNode(true));
+      shell.querySelector('.thead').appendChild(head);
+    } else shell.querySelector('.thead').remove();
+    if (table.tFoot) {
+      const foot = document.createElement('table');
+      foot.className = 'twc-head twc-foot-t';
+      foot.appendChild(table.tFoot.cloneNode(true));
+      shell.querySelector('.tfoot').appendChild(foot);
+    } else shell.querySelector('.tfoot').remove();
+    table.classList.add('twc-body');
+    const sp = new G.Scrollpane();
+    const raw = sp.getMainDiv();
+    const spEl = raw.jquery ? raw[0] : raw;
+    if (table.dataset.max) spEl.style.maxHeight = `${table.dataset.max}px`;
+    else spEl.style.height = '100%';
+    const key = (table.closest('[id]')?.id || '') + ':' + (table.dataset.max || 'fill');
+    const old = panes.get(key);
+    sp.appendContent(table);
+    body.appendChild(spEl);
+    panes.set(key, sp);
+    requestAnimationFrame(() => {
+      try {
+        sp.onResized?.();
+        const pos = old?.getScrollPos?.();
+        if (pos && (pos.y || pos.top)) sp.scrollTo?.(0, pos.y || pos.top);
+      } catch { /* bez posunu */ }
+    });
+  }
+  // Hlavička a päta sú samostatné tabuľky; šírky stĺpcov preberajú z tela tabuľky.
+  function syncWidths() {
+    for (const shell of root.querySelectorAll('.twc-ft')) {
+      const body = shell.querySelector('table.twc-body');
+      if (!body) continue;
+      const row = body.tBodies[0]?.rows[0] || body.tHead?.rows[0];
+      if (!row) continue;
+      // 1. Prirodzená šírka hlavičiek, aby sa nápis zmestil (stĺpec v tele je aspoň taký široký).
+      const head = shell.querySelector('table.twc-head:not(.twc-foot-t)');
+      let mins = [];
+      if (head?.rows[0]) {
+        head.querySelector('colgroup')?.remove();
+        head.classList.add('twc-measure');
+        mins = [...head.rows[0].cells].map(c => Math.ceil(c.getBoundingClientRect().width));
+        head.classList.remove('twc-measure');
+      }
+      if (mins.length === row.cells.length) {
+        let cg = body.querySelector(':scope > colgroup.twc-min');
+        if (!cg) { cg = document.createElement('colgroup'); cg.className = 'twc-min'; body.prepend(cg); }
+        cg.innerHTML = mins.map(w => `<col style="width:${w}px">`).join('');
+      }
+      // 2. Hlavička a päta preberú výsledné šírky stĺpcov tela.
+      const widths = [...row.cells].map(c => c.getBoundingClientRect().width);
+      const total = body.getBoundingClientRect().width;
+      for (const t of shell.querySelectorAll('table.twc-head')) {
+        let cg = t.querySelector('colgroup');
+        if (!cg) { cg = document.createElement('colgroup'); t.prepend(cg); }
+        cg.innerHTML = widths.map(w => `<col style="width:${w}px">`).join('');
+        t.style.width = `${total}px`;
+      }
+    }
+  }
+  let syncQueued = false;
+  function queueSync() {
+    if (syncQueued) return;
+    syncQueued = true;
+    requestAnimationFrame(() => { syncQueued = false; try { syncWidths(); } catch { /* ignorovať */ } });
+  }
+  // Ciele tímu sa rolujú v hernom posuvníku; údaje o zdieľaní a hráčoch hore ostávajú.
+  function skinGoals() {
+    const box = root.querySelector('.twc-team-goals');
+    const G = gui();
+    if (!box || !G?.Scrollpane || box.querySelector(':scope > .tw2gui_scrollpane')) return;
+    const sp = new G.Scrollpane();
+    const raw = sp.getMainDiv();
+    const spEl = raw.jquery ? raw[0] : raw;
+    spEl.style.height = '100%';
+    const inner = document.createElement('div');
+    inner.className = 'twc-goals-inner';
+    while (box.firstChild) inner.appendChild(box.firstChild);
+    const old = panes.get('goals');
+    sp.appendContent(inner);
+    box.appendChild(spEl);
+    panes.set('goals', sp);
+    requestAnimationFrame(() => {
+      try {
+        sp.onResized?.();
+        const pos = old?.getScrollPos?.();
+        if (pos && (pos.y || pos.top)) sp.scrollTo?.(0, pos.y || pos.top);
+      } catch { /* bez posunu */ }
+    });
   }
   function skin() {
     if (skinning || !gui()?.Button) return;
@@ -791,13 +929,16 @@
       root.querySelectorAll('input[type=number]').forEach(skinNumber);
       root.querySelectorAll('input[type=checkbox]').forEach(skinCheckbox);
       root.querySelectorAll('table').forEach(skinTable);
-      scrollpane?.onResized?.();
+      skinGoals();
+      for (const sp of panes.values()) sp.onResized?.();
+      queueSync();
     } catch (e) {
       console.warn('TW kalkulačka: vzhľad', e);
     } finally {
       skinning = false;
     }
   }
+  window.addEventListener('resize', () => { for (const sp of panes.values()) sp.onResized?.(); queueSync(); });
   new MutationObserver(() => { if (!skinning) queueMicrotask(skin); })
     .observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'checked'] });
   root.addEventListener('change', event => {
@@ -883,7 +1024,7 @@
       return;
     }
     box.innerHTML = `<b>${t('plan')}</b>
-      <table><thead><tr><th>${t('product')}</th><th>${t('prof')}</th><th class="n">${t('qty')}</th><th></th></tr></thead><tbody>
+      <table class="twc-scroll" data-max="92"><thead><tr><th>${t('product')}</th><th>${t('prof')}</th><th class="n">${t('qty')}</th><th></th></tr></thead><tbody>
       ${entries.map(([id, qty], i) => {
         const p = Calc.product(id);
         if (!p) return '';
@@ -957,7 +1098,7 @@
         <td>${escapeHtml(DATA.profs[DATA.items[r.id][2]]?.[L()] ?? '')}</td></tr>`).join('');
 
     res.innerHTML = `
-      <table>
+      <table class="twc-scroll twc-fill">
         <thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th>
           <th class="n">${t('miss')}</th><th>${t('job')}</th><th class="n">${t('chance')}</th>
           <th class="n">${t('hours')}</th><th class="n">${t('energy')}</th></tr></thead>
@@ -967,7 +1108,7 @@
       </table>
       ${inter ? `<details><summary>${t('inter')} (${result.inter.length})</summary>
         <p class="muted">${t('interNote')}</p>
-        <table><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th class="n">${t('craft')}</th><th>${t('prof')}</th></tr></thead>
+        <table class="twc-scroll" data-max="120"><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th class="n">${t('craft')}</th><th>${t('prof')}</th></tr></thead>
         <tbody>${inter}</tbody></table></details>` : ''}`;
   }
 
@@ -1098,7 +1239,7 @@
 
     const shared = ch ? GM_getValue(sharedKey(ch), null) : null;
     const shareOn = ch ? sharing(ch) : false;
-    box.innerHTML = `
+    box.innerHTML = `<div class="twc-team-top">
       <label class="row share"><input type="checkbox" data-share ${shareOn ? 'checked' : ''} ${teamBusy ? 'disabled' : ''}>
         <b>${t('share')}</b> <span class="muted">(${t('shareHint')})</span></label>
       <div class="row">
@@ -1110,10 +1251,10 @@
         <button class="link" type="button" data-team="connect">${t('changeCode')}</button>
       </div>
       ${msg}
-      <h4>${t('players')}</h4>${players}
-      <h4>${t('goals')}</h4>
+      <h4>${t('players')}</h4>${players}</div>
+      <div class="twc-team-goals"><h4>${t('goals')}</h4>
       <div class="muted">${t('goalsNote')}</div>
-      ${goalTable}
+      ${goalTable}</div>
       <div class="row goaladd">
         <select id="twc-goalitem" aria-label="${t('item')}">${itemOptions()}</select>
         <input id="twc-goaltarget" type="number" min="1" step="1" value="100" aria-label="${t('goalTarget')}">
@@ -1169,7 +1310,6 @@
   // Bez herného okna (napríklad v testoch): obyčajný kontajner v stránke.
   const WIN_ID = 'twcalc';
   let win = null;
-  let scrollpane = null;
   let fallback = null;
   const canUseGameWindow = () => !!(game.wman?.open && gui()?.Window && gui()?.Scrollpane);
   const isOpen = () => (win ? !!game.wman?.getById?.(WIN_ID) : !!fallback && !fallback.hidden);
@@ -1181,21 +1321,24 @@
       const vh = document.documentElement.clientHeight || window.innerHeight;
       win = game.wman.open(WIN_ID, t('title'), 'noreload twcalc-win');
       win.setMiniTitle(t('title'));
-      win.setSize(Math.max(560, Math.min(820, vw - 40)), Math.max(420, Math.min(600, vh - 140)));
-      scrollpane = new (gui().Scrollpane)();
-      const spEl = scrollpane.getMainDiv();
-      (spEl.jquery ? spEl[0] : spEl).style.height = '100%';
+      win.setSize(Math.max(600, Math.min(860, vw - 40)), Math.max(480, Math.min(800, vh - 130)));
+      try { win.center?.(); } catch { /* ponechať polohu od hry */ }
       root.classList.add('twc-in-window');
-      // Po zatvorení okna hra (jQuery) zmaže obsluhu udalostí herných prvkov; výbery sa preto postavia nanovo.
+      // Po zatvorení okna hra (jQuery) zmaže obsluhu udalostí herných prvkov; výbery a tabuľky sa preto postavia nanovo.
       root.querySelectorAll('.tw2gui_combobox').forEach(face => face.remove());
-      scrollpane.appendContent(root);
-      win.appendToContentPane(spEl);
-      win.addTab(t('myPlan'), 'plan', () => { tab = 'plan'; GM_setValue('tab', tab); renderTabs(); skin(); scrollpane?.scrollToTop?.(); });
-      win.addTab(t('team'), 'team', () => { tab = 'team'; GM_setValue('tab', tab); renderTabs(); skin(); scrollpane?.scrollToTop?.(); });
+      for (const shell of root.querySelectorAll('.twc-ft')) {
+        const table = shell.querySelector('table.twc-body, .twc-ft-plain table');
+        if (table) { table.classList.remove('twc-body'); shell.replaceWith(table); } else shell.remove();
+      }
+      const goals = root.querySelector('.twc-goals-inner');
+      if (goals) { const box = goals.closest('.twc-team-goals'); box.replaceChildren(...goals.childNodes); }
+      panes.clear();
+      win.appendToContentPane(root);
+      win.addTab(t('myPlan'), 'plan', () => { tab = 'plan'; GM_setValue('tab', tab); renderTabs(); skin(); });
+      win.addTab(t('team'), 'team', () => { tab = 'team'; GM_setValue('tab', tab); renderTabs(); skin(); });
       try {
         win.addEventListener(game.TWE ? game.TWE('WINDOW_DESTROY') : 'WINDOW_DESTROY', () => {
           win = null;
-          scrollpane = null;
           openButton.setAttribute('aria-expanded', 'false');
         });
       } catch { /* bez udalosti zatvorenia */ }
@@ -1215,7 +1358,6 @@
     if (win) {
       const w = win;
       win = null;
-      scrollpane = null;
       root.remove();
       try { (game.wman.getById?.(WIN_ID) || w).destroy(); } catch { /* už zatvorené */ }
     }
