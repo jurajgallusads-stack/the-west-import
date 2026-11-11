@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.3.0
+// @version      3.4.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -558,18 +558,23 @@
   // ---------- Rozhranie ----------
   // Ikona TW ostáva v rade posilňovačov. Kalkulačka sa otvára ako bežné okno hry (wman, west.gui),
   // takže má rovnaký rám, titulok, záložky, tlačidlá a posúvanie ako ostatné okná The West.
+  // Ikona v rade posilňovačov v grafike hry: rovnaký rámik (bag_item_mini) a rovnaké rozostupy ako bonus triedy a prémium.
+  const CALC_ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="43" height="43" viewBox="0 0 43 43">
+    <defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58f"/><stop offset=".55" stop-color="#b98a3e"/><stop offset="1" stop-color="#6e4b1d"/></linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c4a2f"/><stop offset="1" stop-color="#1f2818"/></linearGradient></defs>
+    <rect x="10.5" y="6.5" width="22" height="30" rx="3.5" fill="url(#b)" stroke="#3b250c" stroke-width="1.6"/>
+    <rect x="13.5" y="9.5" width="16" height="7" rx="1.2" fill="url(#s)" stroke="#2a1a08" stroke-width=".8"/>
+    <text x="28" y="15.4" font-family="Georgia,serif" font-size="5.6" text-anchor="end" fill="#cfe6a3">12</text>
+    ${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => `<rect x="${13.5 + c * 5.6}" y="${19 + r * 4.3}" width="4.4" height="3.3" rx=".8"
+      fill="${r === 3 && c === 2 ? '#8b2a1a' : '#4a3215'}" stroke="#2a1a08" stroke-width=".4"/>`).join('')).join('')}
+  </svg>`);
   const host = document.createElement('div');
-  const ui = host.attachShadow({ mode: 'open' });
-  ui.innerHTML = `
-    <style>
-      :host { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2147483000; font: 13px Arial, sans-serif; }
-      :host([data-hud]) { position: relative; float: left; left: auto; bottom: auto; transform: none; margin-right: 5px; }
-      #open { display: block; width: 43px; height: 43px; padding: 0; cursor: pointer; border: 2px solid #87643c; border-radius: 3px;
-        background: linear-gradient(#5e4427, #2f2015); color: #f9e2a8; font: bold 13px Arial, sans-serif; }
-      #open:hover, #open[aria-expanded="true"] { border-color: #d2a76a; }
-    </style>
-    <button id="open" type="button" aria-expanded="false">TW</button>`;
-  const openButton = ui.getElementById('open');
+  host.className = 'twcalc-buff';
+  host.style.cssText = 'float:left;width:50px';
+  host.innerHTML = `<div id="twc-open" class="bag_item_mini" role="button" tabindex="0" aria-expanded="false" style="cursor:pointer">
+    <img src="${CALC_ICON}" alt="" width="43" height="43"></div>`;
+  const ui = { getElementById: id => host.querySelector('#twc-' + id) };
+  const openButton = host.querySelector('#twc-open');
 
   // Obsah okna. ID majú predponu twc-, aby sa nebili s prvkami hry.
   const groupframe = inner => `<div class="tw2gui_groupframe twc-gf"><div class="tw2gui_groupframe_background bg0"></div>
@@ -608,6 +613,11 @@
     <div id="twc-foot" class="muted twc-foot"></div>`;
   const $ = id => root.querySelector('#twc-' + id) || ui.getElementById(id);
   const panelSel = sel => root.querySelectorAll(sel);
+  // Ikona suroviny v kruhu (ako ikony prác na mape).
+  const ico = id => {
+    const image = game.ItemManager?.get?.(id)?.image;
+    return image ? `<span class="twc-ico" style="background-image:url('${escapeHtml(image)}')"></span>` : '';
+  };
 
   // Vzhľad hry: obrázky z CDN hry, písmo a farby ako v herných oknách. Platí iba vnútri .twc.
   function installStyle() {
@@ -708,7 +718,13 @@
       .twc .job small { display: block; color: #5b4a35; font-size: 10px; line-height: 11px; overflow: hidden; text-overflow: ellipsis; }
       .twc .tag { font-size: 11px; color: #6b5a40; font-style: italic; }
       .twc .badge { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; background: #8b0000; color: #fff; margin-left: 4px; }
-      .twc .twc-ico { display: inline-block; width: 24px; height: 24px; margin-right: 6px; vertical-align: middle; background: center / contain no-repeat; }
+      .twc .twc-ico { display: inline-block; box-sizing: border-box; width: 28px; height: 28px; margin: -3px 7px -3px 0; vertical-align: middle;
+        border-radius: 50%; border: 2px solid #c9c0ad; background-color: #5b4126; background-size: 78%; background-position: center; background-repeat: no-repeat;
+        box-shadow: 0 0 0 1px #4a3a26, inset 0 0 5px rgba(0, 0, 0, .65); }
+      .twcalc-buff #twc-open[aria-expanded="true"] img, .twcalc-buff #twc-open:hover img { filter: brightness(1.15) drop-shadow(0 0 3px rgba(255, 220, 140, .8)); }
+      .twc table.comp td.prog .bar { display: inline-block; width: 50%; height: 6px; margin: 0 6px 0 0; vertical-align: middle; }
+      .twc table.comp td.prog small { display: inline; vertical-align: middle; }
+      .twc .twc-iname { display: inline-flex; align-items: center; }
       .twc .sum { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 4px 6px 2px; }
       .twc .sum div { font-size: 13px; }
       .twc .sum b { font: bold 18px Georgia, 'Times New Roman', serif; color: #5b3a12; margin-left: 6px; }
@@ -1085,7 +1101,7 @@
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
       .map(r => {
         if (r.job.jobId === null) {
-          return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td title="${escapeHtml(t('noSource'))}">${escapeHtml(nameOf(r.id))}</td>
+          return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td title="${escapeHtml(t('noSource'))}">${ico(r.id)}${escapeHtml(nameOf(r.id))}</td>
             <td class="n">${fmt(r.need)}</td><td class="n">${bag ? fmt(r.have) : '?'}</td>
             <td class="n miss">${fmt(r.missing)}</td>
             <td class="n">–</td><td class="n">–</td><td class="n">–</td></tr>`;
@@ -1099,7 +1115,7 @@
         const na = r.hours === null && r.missing > 0;
         const cls = na ? 'na' : r.missing === 0 ? 'ok' : '';
         return `<tr class="${cls}">
-          <td title="${escapeHtml(jobInfo)}">${escapeHtml(nameOf(r.id))}</td>
+          <td title="${escapeHtml(jobInfo)}">${ico(r.id)}${escapeHtml(nameOf(r.id))}</td>
           <td class="n">${fmt(r.need)}</td>
           <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
           <td class="n miss">${fmt(r.missing)}</td>
@@ -1110,7 +1126,7 @@
 
     const inter = result.inter
       .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
-      .map(r => `<tr class="${r.craft ? '' : 'ok'}"><td>${escapeHtml(nameOf(r.id))}</td><td class="n">${fmt(r.need)}</td>
+      .map(r => `<tr class="${r.craft ? '' : 'ok'}"><td>${ico(r.id)}${escapeHtml(nameOf(r.id))}</td><td class="n">${fmt(r.need)}</td>
         <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
         <td class="n miss">${r.craft ? fmt(r.craft) : '✓'}</td>
         <td>${escapeHtml(DATA.profs[DATA.items[r.id][2]]?.[L()] ?? '')}</td></tr>`).join('');
@@ -1239,7 +1255,7 @@
       const f = g.target ? Math.min(1, (Math.min(done, g.target) + remaining * rawFrac) / g.target) : 1;
       const hours = rawRows.reduce((a, c) => a + myHoursFor(c.id, c.missing), 0);
       const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
-          <td>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</td>
+          <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</span></span></td>
           <td class="n">${fmt(c.need)}</td>
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
@@ -1518,7 +1534,7 @@
     });
   }
   // Písanie do polí kalkulačky nesmie spúšťať klávesové skratky hry.
-  for (const el of [ui, root]) {
+  for (const el of [host, root]) {
     el.addEventListener('keydown', event => {
       if (event.key === 'Escape') toggle(false);
       event.stopPropagation();
@@ -1533,6 +1549,7 @@
     if (!buffRow) return false;
     host.setAttribute('data-hud', '');
     buffRow.prepend(host);
+    installStyle();
     return true;
   }
   if (!mountInBuffRow()) {

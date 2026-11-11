@@ -1,6 +1,6 @@
 # The West – remeselná kalkulačka v hre
 
-Používateľský skript pre Tampermonkey na českých a slovenských svetoch The West. Ikona **TW** vľavo od posilňovačov a prémia otvorí remeselnú kalkulačku priamo v hre. Kalkulačka beží lokálne v prehliadači. Google tabuľku potrebuje iba voliteľná časť **Tím** (spoločné batohy a ciele), a to len po kliknutí na jej tlačidlá.
+Používateľský skript pre Tampermonkey na českých a slovenských svetoch The West. Ikona kalkulačky v rade posilňovačov (vedľa ikony triedy a prémia) otvorí remeselnú kalkulačku priamo v hre. Kalkulačka beží lokálne v prehliadači. Google tabuľku potrebuje iba voliteľná časť **Tím** (spoločné batohy a ciele), a to len po kliknutí na jej tlačidlá.
 
 ## Čo kalkulačka vie
 
@@ -16,12 +16,12 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.3.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.4.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
-1. Klikni na ikonu **TW** vľavo od posilňovačov a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Hore stojí postava s nálezkou a výber výrobku (v záložke Tím zdieľanie a zoznam hráčov). Tabuľky majú pevnú hlavičku a rolujú sa vo vlastnom posuvníku. Ďalší klik na ikonu okno zatvorí.
+1. Klikni na ikonu kalkulačky v rade posilňovačov. Má rovnaký rám a rozostupy ako ikona triedy a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Hore stojí postava s nálezkou a výber výrobku (v záložke Tím zdieľanie a zoznam hráčov). Tabuľky majú pevnú hlavičku a rolujú sa vo vlastnom posuvníku. Suroviny a medziprodukty majú ikonu v kruhu ako práce na mape. Ďalší klik na ikonu okno zatvorí.
 2. Pri prvom použití
 3. Vyber remeslo, kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
