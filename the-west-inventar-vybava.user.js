@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West - inventár a výbava
 // @namespace    urn:jurajgallus:the-west:bundled:the-west-inventar-vybava
-// @version      1.0.1
+// @version      1.0.2
 // @description  Rozšírený inventár, výbava, hromadný nákup a nástroje pre forty.
 // @grant        none
 // @run-at       document-idle
@@ -9390,10 +9390,15 @@
                         .sort((a, b) => (keepHealth ? Number(b.hp >= Character.health) - Number(a.hp >= Character.health) : 0)
                             || b.tmp - a.tmp || b.hp - a.hp)
                         .slice(0, 30)
-                        .map(outfit => ({
-                            ...i.itemsToSets({ items: outfit.ids, sets: [] }),
-                            tmp: outfit.tmp, hp: outfit.hp, exactSpeedItems: outfit.ids
-                        }));
+                        .map(outfit => {
+                            const result = new west.item.ItemSetContainer();
+                            for (const id of outfit.ids) result.addItem(id);
+                            i.itemsToSets(result);
+                            result.tmp = outfit.tmp;
+                            result.hp = outfit.hp;
+                            result.exactSpeedItems = outfit.ids;
+                            return result;
+                        });
                 }
 
                 function movementScore(points, percent, baseRide)
