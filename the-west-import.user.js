@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.4.1
+// @version      3.4.2
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -756,6 +756,7 @@
       .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
       .twc table.comp { margin-top: 6px; }
       .twc table.comp td { padding: 0 8px; }
+      .twc table.comp td.profession { text-align: center; font-style: italic; text-transform: lowercase; }
       .twc table.comp td:first-child { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
       .twc table.comp td.prog { width: 80px; min-width: 0; }
       .twc table.comp td:first-child .tag { display: block; line-height: 11px; }
@@ -1263,7 +1264,9 @@
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
           <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td>
-          ${showClaimColumn ? `<td>${c.inter ? escapeHtml(professionName(c.id)) : c.missing ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
+          ${showClaimColumn ? (c.inter
+            ? `<td class="profession"><small class="who">${escapeHtml(professionName(c.id))}</small></td>`
+            : `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>`) : ''}</tr>`).join('');
       const open = !closedGoals.has(g.id);
       return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
