@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.4.0
+// @version      3.4.1
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -291,6 +291,7 @@
   const t = key => T[lang][key];
   const nameOf = id => DATA.items[id][lang === 'sk' ? 0 : 1];
   const jobName = id => DATA.jobs[id][lang === 'sk' ? 0 : 1];
+  const professionName = id => DATA.profs[Calc.product(id)?.prof ?? DATA.items[id]?.[2]]?.[L()] ?? '';
   const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[c]);
@@ -1129,7 +1130,7 @@
       .map(r => `<tr class="${r.craft ? '' : 'ok'}"><td>${ico(r.id)}${escapeHtml(nameOf(r.id))}</td><td class="n">${fmt(r.need)}</td>
         <td class="n"${haveTitle(r.id)}>${bag ? fmt(r.have) : '?'}</td>
         <td class="n miss">${r.craft ? fmt(r.craft) : '✓'}</td>
-        <td>${escapeHtml(DATA.profs[DATA.items[r.id][2]]?.[L()] ?? '')}</td></tr>`).join('');
+        <td>${escapeHtml(professionName(r.id))}</td></tr>`).join('');
 
     res.innerHTML = `
       <table class="twc-scroll twc-fill twc-center">
@@ -1248,6 +1249,8 @@
         return { id, need, have, missing: Math.max(0, need - have), f: pct(have, need) };
       }).sort(byName);
       const comps = [...interRows, ...rawRows];
+      const hasClaims = Array.isArray(claims);
+      const showClaimColumn = hasClaims || interRows.length > 0;
       // Progres: aká časť surovín na zvyšné kusy je pokrytá (zásobou surovín alebo hotovými medziproduktmi).
       const fullSum = [...full.values()].reduce((a, n) => a + n, 0);
       const missSum = rawRows.reduce((a, c) => a + c.missing, 0);
@@ -1260,7 +1263,7 @@
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
           <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td>
-          ${Array.isArray(claims) ? `<td>${c.missing && !c.inter ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
+          ${showClaimColumn ? `<td>${c.inter ? escapeHtml(professionName(c.id)) : c.missing ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
       const open = !closedGoals.has(g.id);
       return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
@@ -1269,7 +1272,7 @@
           ${remaining ? `<button class="link" type="button" data-toplan="${g.item}" data-missing="${remaining}" title="${t('toPlanTitle')}">${t('toPlan')} (${fmt(remaining)})</button>` : ''}${del}</div>
         ${bar(f)}${who(g.item)}</summary>
         ${remaining ? `<table class="comp"><thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th>
-          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>${Array.isArray(claims) ? `<th>${t('claimCol')}</th>` : ''}</tr></thead>
+          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>${showClaimColumn ? `<th>${t(hasClaims ? 'claimCol' : 'prof')}</th>` : ''}</tr></thead>
           <tbody>${rows}</tbody></table>` : ''}
       </details>`;
     }).join('');
