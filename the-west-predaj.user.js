@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.1
+// @version      2.0.2
 // @description  Klik na ikonu $ zvýrazní v batohu na svetločerveno oblečenie a zbrane, ktoré môžeš predať. Predávaš ručne obchodníkovi. Sady, veci na úlohy, pomenované, vylepšené a najlepšie kusy sa nezvýrazňujú.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -217,10 +217,26 @@
     return { ids, count: ids.size };
   }
 
+  // Pomenované predmety z Quick Items Search (The West - Essentials). Hra pri nich nemusí nastaviť named.
+  const NAMED_BASES = new Set([
+    10, 14, 18, 51, 56, 134, 135, 139, 195, 199, 237, 314, 322, 399,
+    530, 541, 551, 571, 608, 810, 857, 862, 909, 913, 917, 921, 925, 10227,
+    10235, 10243, 10251, 10259, 10330, 11087, 11101, 11215, 11223, 11231, 11239, 11247, 11255, 11263,
+    11271, 40076, 40079, 40080, 40090, 40091, 40099, 40107, 40111, 40115, 40123, 40127, 40135, 40143,
+    40151, 40159, 40167, 40175, 40183, 40235, 41047, 41056, 41059, 41068, 41070, 41079, 41080, 41089,
+    41104, 41105, 41113, 41128, 41137, 41146, 41155, 41164, 41173, 41230, 42035, 42039, 42040, 42044,
+    42052, 42056, 42060, 42068, 42076, 42085, 42089, 42093, 42101, 42109, 42117, 42125, 42133, 42141,
+    42149, 42230, 43011, 43015, 43023, 43027, 43031, 43039, 43047, 43055, 43063, 43071, 43075, 43083,
+    43087, 43095, 43103, 43111, 43119, 43127, 43135, 43143, 43230, 44003, 44007, 44011, 44015, 44019,
+    45001, 45005, 45009, 45013, 45017, 51069, 53178, 53187, 53204, 53213, 53222, 53226, 53230, 53234,
+    53235, 53617, 53626, 53635, 53644, 53653, 53657, 53661, 53674, 53683, 53692, 53701, 53710, 53714,
+    53718, 53722, 53731, 53740, 53749, 53758, 53767, 53776, 53780, 53784, 53788, 53808, 53817,
+  ]);
+
   function reason(o, ctx) {
     if (!GEAR.has(o.type)) return 'goods';
     if (ctx.keep.has(o.item_id)) return 'keep';
-    if (o.named) return 'named';
+    if (o.named || NAMED_BASES.has(baseOf(o))) return 'named';
     if (o.set || ctx.sets.has(baseOf(o))) return 'set';
     if (Number(o.item_level) > 0) return 'upgraded';
     if (o.unique) return 'unique';
