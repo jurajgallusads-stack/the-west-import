@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West - inventár a výbava
 // @namespace    urn:jurajgallus:the-west:bundled:the-west-inventar-vybava
-// @version      1.0.0
+// @version      1.0.1
 // @description  Rozšírený inventár, výbava, hromadný nákup a nástroje pre forty.
 // @grant        none
 // @run-at       document-idle
@@ -1839,14 +1839,10 @@
                         {}, Wear.wear);
                         var o = new TWIR_Calc("best",
                         {
-                            skills: "ms"
+                            skills: "ms",
+                            preserveHealth: TWIR.Features.get("smart_speed_set")
                         });
-                        if (TWIR.Features.get("smart_speed_set") && o.sort(function(e, t)
-                            {
-                                var i = e.hp - Character.health,
-                                    a = t.hp - Character.health;
-                                return i < 0 ? 1 : a < 0 ? -1 : t.tmp - e.tmp
-                            }), !(o = TWIR_Calc.getUsedItems(o[0]))
+                        if (!(o = TWIR_Calc.getUsedItems(o[0]))
                             .length) return;
                         new UserMessage(TWIR_lang.informative.update_wait + "..", "hint")
                             .show(), TWIR.Inventory.wearItemIds(o || [], function(n)
@@ -8595,7 +8591,7 @@
                         var i = this.elements.length,
                             a = {},
                             r = TWIR_Calc.getUsedItems(e),
-                            n = new TWIR_Calc("bonusFromContainer", null, e, !1, this.options.level),
+                            n = new TWIR_Calc("bonusFromContainer", e.exactSpeedItems ? { skills: "ms" } : null, e, !1, this.options.level),
                             o = TWIR_Calc.mergeBonus(n),
                             A = '<div style="color: #8b4513;margin-bottom: 10px;">' + TWIR_lang.calc.bonus_count_title + ":&nbsp;</div>";
                         A += TWIR.Popups.bonusXHTML(o), a.line = $('<div style="display: inline-block;position: relative;width: 380px;font-family: Arial,Verdana,sans-serif;font-weight: bold;color: rgb(58,46,16);cursor: pointer; margin-top: 5px;"></div>')
@@ -9069,6 +9065,7 @@
                 switch (e)
                 {
                     case "best":
+                        if (i.options.skills === "ms") return bestSpeed();
                         var a = [];
                         return (a = function()
                             {
@@ -9290,6 +9287,120 @@
                         return l(...t)
                 }
 
+                function bestSpeed()
+                {
+                    const keepHealth = i.options.preserveHealth;
+                    const slotBits = new Map(Wear.slots.map((slot, index) => [slot, 1 << index]));
+                    const current = Wear.slots.map(slot => Wear.get(slot)).filter(Boolean);
+                    const ids = new Set([...current.map(item => item.getId()), ...Object.values(Bag.getItemsIdsByBaseItemIds()).flat()]);
+                    const sets = new Map();
+                    const singles = new Map();
+                    const empty = { mask: 0, ids: [], points: 0, percent: 0, health: 0 };
+                    const stats = bonus => ({
+                        points: (bonus.ride || 0) + (bonus.ms || 0),
+                        percent: bonus.speed || 0,
+                        health: bonus.health || 0
+                    });
+                    const dominates = (a, b) => a.points >= b.points && a.percent >= b.percent
+                        && (!keepHealth || a.health >= b.health);
+                    const add = (table, entry) => {
+                        const sameSlots = table.get(entry.mask) || [];
+                        if (sameSlots.some(other => dominates(other, entry))) return;
+                        table.set(entry.mask, [...sameSlots.filter(other => !dominates(entry, other)), entry]);
+                    };
+                    const combine = (table, choices) => {
+                        const next = new Map(table);
+                        for (const group of table.values()) {
+                            for (const prev of group) {
+                                for (const choice of choices) {
+                                    if (prev.mask & choice.mask) continue;
+                                    add(next, {
+                                        mask: prev.mask | choice.mask,
+                                        ids: prev.ids.concat(choice.ids),
+                                        points: prev.points + choice.points,
+                                        percent: prev.percent + choice.percent,
+                                        health: prev.health + choice.health
+                                    });
+                                }
+                            }
+                        }
+                        return next;
+                    };
+
+                    let availableSlots = 0;
+                    for (const id of ids) {
+                        const item = ItemManager.get(id);
+                        const mask = slotBits.get(item?.type);
+                        if (!mask || !i.wearable(item)) continue;
+                        if (item.type === "right_arm" && i.options.weapon && item.sub_type !== i.options.weapon) continue;
+                        availableSlots |= mask;
+                        const candidate = { mask, ids: [id], ...stats(r(item, true)) };
+                        const set = item.set && west.storage.ItemSetManager.get(item.set);
+                        if (set) {
+                            if (!sets.has(item.set)) sets.set(item.set, { set, choices: new Map() });
+                            add(sets.get(item.set).choices, candidate);
+                        } else add(singles, candidate);
+                    }
+
+                    let outfits = new Map([[0, [empty]]]);
+                    for (const { set, choices } of sets.values()) {
+                        const stageBonuses = [stats({})];
+                        for (let count = 1; count <= choices.size; count++) {
+                            const stage = new west.item.ItemSet({
+                                key: set.key, items: Array(count), bonus: set.bonus
+                            });
+                            stageBonuses.push(stats(s(stage, true)));
+                        }
+                        if (stageBonuses.every(bonus => !bonus.points && !bonus.percent && (!keepHealth || !bonus.health))) {
+                            for (const group of choices.values())
+                                for (const item of group) add(singles, item);
+                            continue;
+                        }
+
+                        let parts = new Map([[0, [empty]]]);
+                        for (const group of choices.values()) parts = combine(parts, group);
+                        const alternatives = [];
+                        for (const [mask, group] of parts) {
+                            if (!mask) continue;
+                            for (const part of group) {
+                                const bonus = stageBonuses[part.ids.length];
+                                alternatives.push({
+                                    ...part,
+                                    points: part.points + bonus.points,
+                                    percent: part.percent + bonus.percent,
+                                    health: part.health + bonus.health
+                                });
+                            }
+                        }
+                        outfits = combine(outfits, alternatives);
+                    }
+                    for (const choices of singles.values()) outfits = combine(outfits, choices);
+
+                    // The results show pieces to equip. Include occupied slots so an omitted
+                    // piece cannot continue to contribute an uncounted bonus or set stage.
+                    const required = Wear.slots.reduce((mask, slot) => Wear.get(slot) ? mask | slotBits.get(slot) : mask, 0) & availableSlots;
+                    const baseRide = CharacterSkills.getSkill("ride").points;
+                    return [...outfits.values()].flat()
+                        .filter(outfit => outfit.ids.length && (outfit.mask & required) === required)
+                        .map(outfit => ({
+                            ...outfit,
+                            tmp: movementScore(outfit.points, outfit.percent, baseRide),
+                            hp: I({ health: outfit.health }, "fort_hp")
+                        }))
+                        .sort((a, b) => (keepHealth ? Number(b.hp >= Character.health) - Number(a.hp >= Character.health) : 0)
+                            || b.tmp - a.tmp || b.hp - a.hp)
+                        .slice(0, 30)
+                        .map(outfit => ({
+                            ...i.itemsToSets({ items: outfit.ids, sets: [] }),
+                            tmp: outfit.tmp, hp: outfit.hp, exactSpeedItems: outfit.ids
+                        }));
+                }
+
+                function movementScore(points, percent, baseRide)
+                {
+                    return (100 + baseRide + points) * (1 + percent / 100);
+                }
+
                 function r(e, t, a)
                 {
                     a = a || (i.options.level ? i.options.level : Character.level);
@@ -9316,7 +9427,7 @@
                             return Object && Object.keys && (t = Object.keys(e)
                                 .length), t
                         };
-                    if (e.speed && p("ms", Math.round(1 / e.speed * 100 - 100)), e instanceof west.item.Weapon && (p(e.type + "_damage_min", e.getDamage(
+                    if (e.speed && p("ms", i.options.skills === "ms" ? (1 / e.speed - 1) * 100 : Math.round(1 / e.speed * 100 - 100)), e instanceof west.item.Weapon && (p(e.type + "_damage_min", e.getDamage(
                             {
                                 level: a
                             })
@@ -9341,7 +9452,7 @@
                                 for (skill in r) p(skill, r[skill]);
                             (!t || !I(n.key) || t && I(n.key, !0) && "object" == typeof i.options.skills && n.key in i.options.skills) && p(n.key, n.value)
                         }
-                    return (e.usebonus || e.action || JobList.dropsItem(e.item_id)) && (A = {}), i._memo[g] = A, A
+                    return (i.options.skills !== "ms" && (e.usebonus || e.action || JobList.dropsItem(e.item_id))) && (A = {}), i._memo[g] = A, A
                 }
 
                 function n(e, t)
@@ -9427,8 +9538,9 @@
                     {
                         level: a
                     }, t);
+                    const percent = (value, type) => i.options.skills === "ms" && type === "speed" ? 100 * value : Math.round(100 * value);
                     switch ("character" === e.type ? (value = r.getCharacterItemValue(e), (e = e.bonus)
-                            .type in r.keyDescMapping && (value = Math.round(100 * value))) : e.type in r.keyDescMapping ? (value = r.getValue(e), value = Math.round(100 * value)) : value = r.getValue(e), e.type)
+                            .type in r.keyDescMapping && (value = percent(value, e.type))) : e.type in r.keyDescMapping ? (value = r.getValue(e), value = percent(value, e.type)) : value = r.getValue(e), e.type)
                     {
                         case "skill":
                         case "attribute":
@@ -9510,8 +9622,7 @@
                     switch (t || ("string" == typeof i.options.skills ? i.options.skills : void 0))
                     {
                         case "ms":
-                            a += n((100 + (e.ride || 0) + (e.ms || 0) + r("ride")) * (1 + (e.speed || 0) / 100), 0), e.ride || e.speed || (a = 0);
-                            break;
+                            return n(movementScore((e.ride || 0) + (e.ms || 0), e.speed || 0, r("ride")), 0);
                         case "fort_resistance":
                             a += n(300 * d / p + (e.fort_resistance || 0), 0);
                             break;
@@ -9593,7 +9704,8 @@
             }, TWIR_Calc.getUsedItems = function(e, t)
             {
                 var i, a, r = [];
-                if ("object" != typeof e) return r;
+                if (!e || "object" != typeof e) return r;
+                if (e.exactSpeedItems) return e.exactSpeedItems.map(id => t ? Math.floor(id / 1e3) : id);
                 for (var n = e.items.slice(0), o = 0, A = e.sets.length; o < A; o++) n.push.apply(n, e.sets[o].getItems());
                 for (var o = 0, s = n.length; o < s; o++)(i = Bag.getItemByItemId(n[o])) ? !(a = Wear.get(i.getType())) || a && (a.getItemBaseId() !== i.getItemBaseId() || a.getItemLevel() < i.getItemLevel()) ? r.push(t ? i.getItemBaseId() : i.getId()) : r.push(t ? a.getItemBaseId() : a.getId()) : r.push(t ? parseInt(n[o] / 1e3) : n[o]);
                 return r
