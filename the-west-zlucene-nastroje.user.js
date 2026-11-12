@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West - zlúčené nástroje
 // @namespace    urn:jurajgallus:the-west:bundled:the-west-zlucene-nastroje
-// @version      1.1.0
+// @version      1.2.0
 // @description  Kalkulačky, farebný chat, práce, duely a funkcie Essentials.
 // @grant        none
 // @run-at       document-idle
@@ -11461,7 +11461,52 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
       TWX.ItemNew = {
         allBids: [],
         learnedRecps: [],
+        stampedNames: new Set(),
+        normalizeName: function (name) {
+          return typeof name === 'string' ? name.trim().normalize('NFC') : '';
+        },
+        itemName: function (obj) {
+          const base = obj.item_base_id && ItemManager.getByBaseId(obj.item_base_id);
+          return this.normalizeName(base?.name || obj.name);
+        },
+        readStamps: function (response) {
+          const achievements = response?.achievements;
+          if (response?.error || !achievements) return;
+          const entries = [...Object.values(achievements.progress || {}), ...Object.values(achievements.finished || {})];
+          const template = document.createElement('template');
+          for (const entry of entries) {
+            const meta = entry?.meta;
+            const fragments = typeof meta === 'string' ? [meta] : Object.values(meta || {})
+              .flatMap(part => part && typeof part === 'object' ? Object.values(part) : [part]);
+            for (const html of fragments) {
+              if (typeof html !== 'string' || !html.includes('<img')) continue;
+              template.innerHTML = html;
+              for (const image of template.content.querySelectorAll('span img[alt]')) {
+                let locked = false;
+                for (let node = image; node && !locked; node = node.parentElement) {
+                  locked = Array.from(node.classList).some(name => /(?:^|[-_])locked$/i.test(name));
+                }
+                const name = this.normalizeName(image.getAttribute('alt'));
+                if (!locked && name) this.stampedNames.add(name);
+              }
+            }
+          }
+          for (const badge of document.querySelectorAll('.TWX_ItemNew[data-twx-item-name]')) {
+            if (this.stampedNames.has(badge.dataset.twxItemName)) badge.remove();
+          }
+        },
+        badge: function (obj, style) {
+          if (!this.isNewItem(obj)) return '';
+          return $('<img>').attr({
+            src: this.iconNew,
+            class: 'TWX_ItemNew',
+            title: 'new Item',
+            style,
+            'data-twx-item-name': this.itemName(obj)
+          }).prop('outerHTML');
+        },
         isNewItem: function (obj) {
+          if (!obj || this.stampedNames.has(this.itemName(obj))) return 0;
           var inv = Bag.getItemsIdsByBaseItemId(obj.item_base_id),
           wear = Wear.wear[obj.type],
           wear2 = wear && wear.obj.item_base_id == obj.item_base_id,
@@ -11472,9 +11517,14 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
         iconNew: "data:image/png;base64,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",
         init: function () {
           var setVal11 = setInterval(function () {
-            if (!window.MarketWindow)
+            if (!window.MarketWindow || !Character.playerId)
               return;
             clearInterval(setVal11);
+            // Cloth Calc draws the same NEW badge. This feature handles it in all shops and on the market.
+            TWX.addStyle('.TWDBcollector { display: none !important; }');
+            Ajax.remoteCall('achievement', 'get_list', { folder: 'collections', playerid: Character.playerId }, function (response) {
+              TWX.ItemNew.readStamps(response);
+            });
             Ajax.remoteCall('building_market', 'fetch_bids', {}, function (t) {
               if (t.error)
                 return new UserMessage(t.msg, UserMessage.TYPE_ERROR).show();
@@ -11490,15 +11540,14 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
             });
             MarketWindow.getClearName_twx = MarketWindow.getClearName_twx || MarketWindow.getClearName;
             MarketWindow.getClearName = function (obj) {
-              var itemNew = TWX.ItemNew.isNewItem(obj) ? '<img src="' + TWX.ItemNew.iconNew + '" class="TWX_ItemNew" title="new Item" style="width:18px;">' : '';
+              var itemNew = TWX.ItemNew.badge(obj, 'width:18px;');
               return itemNew + MarketWindow.getClearName_twx.call(this, obj);
             };
             tw2widget.TraderItem.prototype.getMainDiv_twx = tw2widget.TraderItem.prototype.getMainDiv_twx || tw2widget.TraderItem.prototype.getMainDiv;
             tw2widget.TraderItem.prototype.getMainDiv = function () {
               this.divMain = tw2widget.TraderItem.prototype.getMainDiv_twx.apply(this, arguments);
               this.divMain.find('.TWX_ItemNew').remove();
-              if (TWX.ItemNew.isNewItem(this.obj))
-                this.divMain.append('<img src="' + TWX.ItemNew.iconNew + '" class="TWX_ItemNew" title="new Item" style="position:absolute;top:-12px;left:-15px;">');
+              this.divMain.append(TWX.ItemNew.badge(this.obj, 'position:absolute;top:-12px;left:-15px;'));
               return this.divMain;
             };
             west.game.shop.item.view.prototype.render_twx = west.game.shop.item.view.prototype.render_twx || west.game.shop.item.view.prototype.render;
@@ -11506,8 +11555,7 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
               var that = this,
               $item = west.game.shop.item.view.prototype.render_twx.apply(this, arguments);
               $item.find('.TWX_ItemNew').remove();
-              if (TWX.ItemNew.isNewItem(this.model._data.item_data))
-                $item.append('<img src="' + TWX.ItemNew.iconNew + '" class="TWX_ItemNew" title="new Item" style="position:absolute;">');
+              $item.append(TWX.ItemNew.badge(this.model._data.item_data, 'position:absolute;'));
               return $item;
             };
           }, 2000);
