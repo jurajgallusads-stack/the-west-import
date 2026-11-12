@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.0
+// @version      2.0.1
 // @description  Klik na ikonu $ zvýrazní v batohu na svetločerveno oblečenie a zbrane, ktoré môžeš predať. Predávaš ručne obchodníkovi. Sady, veci na úlohy, pomenované, vylepšené a najlepšie kusy sa nezvýrazňujú.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -322,23 +322,22 @@
 
   // Keď hra vykreslí predmet v batohu (napríklad pri listovaní alebo filtri), hneď ho zafarbíme.
   function hookInventory() {
-    const tw = game.tw2widget;
-    for (const cls of [tw?.InventoryItem, tw?.Item]) {
-      const proto = cls?.prototype;
-      if (!proto || typeof proto.getMainDiv !== 'function' || proto.__twsellHooked) continue;
-      const orig = proto.getMainDiv;
-      proto.getMainDiv = function (...args) {
-        const result = orig.apply(this, args);
-        try {
-          if (this?.obj && game.Bag?.items_by_id?.[this.obj.item_id]) {
-            rendered.add(this);
-            setTimeout(() => paint(this), 0);
-          }
-        } catch { /* ignorovať */ }
-        return result;
-      };
-      proto.__twsellHooked = true;
-    }
+    // TraderItem also inherits from Item. Keep the hook on InventoryItem so
+    // shop scripts that recompile TraderItem methods never copy this closure.
+    const proto = game.tw2widget?.InventoryItem?.prototype;
+    if (!proto || typeof proto.getMainDiv !== 'function' || proto.__twsellHooked) return;
+    const originalGetMainDiv = proto.getMainDiv;
+    proto.getMainDiv = function (...args) {
+      const result = originalGetMainDiv.apply(this, args);
+      try {
+        if (this?.obj && game.Bag?.items_by_id?.[this.obj.item_id]) {
+          rendered.add(this);
+          setTimeout(() => paint(this), 0);
+        }
+      } catch { /* ignorovať */ }
+      return result;
+    };
+    proto.__twsellHooked = true;
   }
 
   // Alt + klik na predmet v batohu: prepne „nepredávať“.
