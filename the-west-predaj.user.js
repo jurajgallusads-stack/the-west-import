@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.2
+// @version      2.0.3
 // @description  Klik na ikonu $ zvýrazní v batohu na svetločerveno oblečenie a zbrane, ktoré môžeš predať. Predávaš ručne obchodníkovi. Sady, veci na úlohy, pomenované, vylepšené a najlepšie kusy sa nezvýrazňujú.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -233,6 +233,25 @@
     53718, 53722, 53731, 53740, 53749, 53758, 53767, 53776, 53780, 53784, 53788, 53808, 53817,
   ]);
 
+  // Predmety na opakovateľné úlohy chránené v Essentials (TWX.TraderSell).
+  const REPEATABLE_QUEST_BASES = new Set([
+    3, 17, 201, 202, 208, 235, 302, 303, 325, 329, 334, 342, 355, 405, 420, 432, 503, 506, 507, 525, 603, 802, 10003, 10005, 10012, 10015, 10075, 10149, 11003, 11014, 41171
+  ]);
+
+  function merchantOptions() {
+    if (!game.tw2widget?.InventoryItem?.prototype?.initDisplay_twx) return null;
+    return game.TWX?.Data?.sellOpts ?? null;
+  }
+
+  function merchantBlockedIds(bagItems) {
+    const blocked = new Set();
+    for (const item of [...bagItems, ...rendered]) {
+      const el = itemElement(item);
+      if (el?.isConnected && el.classList.contains('not_sellable')) blocked.add(item.obj?.item_id);
+    }
+    return blocked;
+  }
+
   function reason(o, ctx) {
     if (!GEAR.has(o.type)) return 'goods';
     if (ctx.keep.has(o.item_id)) return 'keep';
@@ -241,7 +260,9 @@
     if (Number(o.item_level) > 0) return 'upgraded';
     if (o.unique) return 'unique';
     if (o.quest || QUEST_BASES.has(baseOf(o))) return 'quest';
-    if (!o.sellable || !(Number(o.sell_price) > 0)) return 'nosell';
+    if (!o.sellable || !(Number(o.sell_price) > 0) || ctx.merchantBlocked.has(o.item_id)) return 'nosell';
+    if (ctx.merchant?.reps && REPEATABLE_QUEST_BASES.has(baseOf(o))) return 'quest';
+    if (ctx.merchant?.auct && !o.auctionable) return 'nosell';
     if (ctx.craft.has(o.item_id)) return 'craft';
     if (ctx.equip.has(o.item_id) || ctx.equipBase.has(baseOf(o))) return 'equip';
     if (ctx.best.has(o.item_id)) return ctx.best.get(o.item_id);
@@ -257,6 +278,7 @@
     const bagItems = Object.values(bag.items_by_id).filter(it => it?.obj && Number(it.count) > 0);
     const best = bestItems(bagItems.filter(it => GEAR.has(it.obj.type)));
     const ctx = { keep: new Set(GM_getValue(keepKey(ch), [])), craft: craftItems(), equip: equip.ids,
+      merchant: merchantOptions(), merchantBlocked: merchantBlockedIds(bagItems),
       equipBase: new Set([...equip.ids].map(id => Math.floor(id / 1000))), sets: setBases(), best };
     const items = [];
     const kept = {};
@@ -299,7 +321,7 @@
     const el = itemElement(it);
     if (!el) return;
     elToItem.set(el, it.obj?.item_id);
-    const on = active && current.ids.has(it.obj?.item_id);
+    const on = active && current.ids.has(it.obj?.item_id) && !el.classList.contains('not_sellable');
     if (on) {
       el.classList.add(MARK);
       el.style.setProperty('background-color', 'rgba(255, 110, 110, 0.55)', 'important');
@@ -414,7 +436,9 @@
     if (!active) return;
     hookInventory();
     const items = game.Bag?.items_by_id;
-    const sig = items ? Object.values(items).map(i => `${i?.obj?.item_id}:${i?.count}:${i?.divMain ? 1 : 0}`).join(',') : '';
+    const bagItems = Object.values(items || {});
+    const contents = bagItems.map(i => `${i?.obj?.item_id}:${i?.count}:${i?.divMain ? 1 : 0}`).join(',');
+    const sig = JSON.stringify([contents, merchantOptions(), [...merchantBlockedIds(bagItems)]]);
     if (sig !== bagSig) { bagSig = sig; refresh(); }
   }, 1500);
 
