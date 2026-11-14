@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West - zlúčené nástroje
 // @namespace    urn:jurajgallus:the-west:bundled:the-west-zlucene-nastroje
-// @version      1.2.0
+// @version      1.2.1
 // @description  Kalkulačky, farebný chat, práce, duely a funkcie Essentials.
 // @grant        none
 // @run-at       document-idle
@@ -1957,6 +1957,7 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
             version: '1.3.0',
             settingsKey: 'TWPT_preferences',
             defaultPreferences: {
+                CinemaSkipButton: true,
                 ZoomMap: true,
                 DisablePremiumNotifications: true,
                 NineTimesFifteenButton: true,
@@ -2034,6 +2035,10 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
                 };
 
                 setTitle('Enabled Features');
+                setCheckBox(
+                    'CinemaSkipButton',
+                    'Show a button to skip the cinema ad after 15 seconds.',
+                );
                 setCheckBox(
                     'ZoomMap',
                     'Enable the Zoom feature (hover the minimap icon on the top right and scroll up / down to zoom out / in).',
@@ -2148,6 +2153,76 @@ var TWCalcJS=function(){(function(){"use strict";var commonjsGlobal="undefined"!
                 scrollPane.appendContent(importButton.getMainDiv());
 
                 win.appendToContentPane(scrollPane.getMainDiv());
+            },
+        };
+
+        TWPT.CinemaSkipButton = {
+            init() {
+                const cinema = window.CinemaWindow;
+                if (!cinema || typeof cinema.open !== 'function' || typeof cinema.controller !== 'function') return;
+
+                const duration = 15000;
+                const label = Game.locale === 'cs_CZ' ? 'Přeskočit reklamu'
+                    : Game.locale === 'sk_SK' ? 'Preskočiť reklamu' : 'Skip ad';
+                const openCinema = cinema.open;
+                const showCinemaPage = cinema.controller;
+                let deadline = 0;
+                let timer;
+                let videoWindow;
+
+                const button = new west.gui.Button(label, () => {
+                    if (!deadline || performance.now() < deadline || !videoIsVisible()) return;
+                    cinema.controller('rewards');
+                });
+                const view = button.getMainDiv();
+                const videoIsVisible = () => cinema.window === videoWindow
+                    && $('iframe.cinema-video', cinema.DOM).is(':visible');
+
+                function reset() {
+                    clearTimeout(timer);
+                    deadline = 0;
+                    videoWindow = null;
+                    button.disable();
+                    button.setVisible(false);
+                }
+
+                function update() {
+                    if (!videoIsVisible()) {
+                        reset();
+                        return;
+                    }
+                    const remaining = deadline - performance.now();
+                    if (remaining <= 0) {
+                        button.setCaption(label);
+                        button.enable();
+                        return;
+                    }
+                    button.setCaption(label + ' (' + Math.ceil(remaining / 1000) + ')');
+                    timer = setTimeout(update, Math.min(1000, remaining));
+                }
+
+                cinema.open = function (...args) {
+                    reset();
+                    const result = openCinema.apply(this, args);
+                    $(cinema.window?.divMain).find('.tw2gui_inner_window_title').append(view);
+                    return result;
+                };
+
+                cinema.controller = function (page, ...args) {
+                    reset();
+                    const result = showCinemaPage.call(this, page, ...args);
+                    if (page === 'video') {
+                        videoWindow = cinema.window;
+                        deadline = performance.now() + duration;
+                        button.setVisible(true);
+                        update();
+                    }
+                    return result;
+                };
+
+                $(view).css({marginLeft: '20px', marginTop: '-20px', position: 'absolute'});
+                $(view).children().last().css({lineHeight: 'normal', paddingTop: '10px'});
+                reset();
             },
         };
 
