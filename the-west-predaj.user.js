@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – predaj nepotrebných vecí
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.0.3
+// @version      2.0.4
 // @description  Klik na ikonu $ zvýrazní v batohu na svetločerveno oblečenie a zbrane, ktoré môžeš predať. Predávaš ručne obchodníkovi. Sady, veci na úlohy, pomenované, vylepšené a najlepšie kusy sa nezvýrazňujú.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -301,6 +301,16 @@
 
   // ---------- Zvýraznenie v batohu ----------
   const MARK = 'twsell-mark';
+  const saleHighlightStyle = document.createElement('style');
+  // The shop can mark a card after it was rendered. CSS stops highlighting it immediately.
+  saleHighlightStyle.textContent = `
+    .${MARK}:not(.not_sellable) {
+      background-color: rgba(255, 110, 110, 0.55) !important;
+      border-radius: 4px !important;
+      box-shadow: 0 0 0 2px rgba(210, 40, 40, 0.65) !important;
+    }
+  `;
+  document.head.append(saleHighlightStyle);
   let active = !!GM_getValue(P + 'active', false);
   let current = { ids: new Set(), count: 0, sum: 0, error: null, kept: {} };
   const elToItem = new WeakMap();
@@ -321,18 +331,7 @@
     const el = itemElement(it);
     if (!el) return;
     elToItem.set(el, it.obj?.item_id);
-    const on = active && current.ids.has(it.obj?.item_id) && !el.classList.contains('not_sellable');
-    if (on) {
-      el.classList.add(MARK);
-      el.style.setProperty('background-color', 'rgba(255, 110, 110, 0.55)', 'important');
-      el.style.setProperty('border-radius', '4px', 'important');
-      el.style.setProperty('box-shadow', '0 0 0 2px rgba(210, 40, 40, 0.65)', 'important');
-    } else if (el.classList.contains(MARK)) {
-      el.classList.remove(MARK);
-      el.style.removeProperty('background-color');
-      el.style.removeProperty('border-radius');
-      el.style.removeProperty('box-shadow');
-    }
+    el.classList.toggle(MARK, active && current.ids.has(it.obj?.item_id));
   }
 
   function refresh() {
@@ -348,12 +347,7 @@
       if (!el || !el.isConnected) rendered.delete(it); else paint(it);
     }
     for (const el of document.querySelectorAll('.' + MARK)) {
-      if (!active || !current.ids.has(elToItem.get(el))) {
-        el.classList.remove(MARK);
-        el.style.removeProperty('background-color');
-        el.style.removeProperty('border-radius');
-        el.style.removeProperty('box-shadow');
-      }
+      if (!active || !current.ids.has(elToItem.get(el))) el.classList.remove(MARK);
     }
     renderIcon();
   }
