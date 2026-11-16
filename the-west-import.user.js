@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.5.0
+// @version      3.5.1
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -780,6 +780,7 @@
       .twc .claimline { font-size: 11px; color: #5b4a35; margin-top: 2px; }
       .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
       .twc table.comp { margin-top: 6px; }
+      .twc .goal-inter > summary { margin: 6px 0; color: #5b3a12; }
       .twc table.comp td { padding: 0 8px; }
       .twc table.comp td.profession { text-align: center; font-style: italic; text-transform: lowercase; }
       .twc table.comp td:first-child { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
@@ -1240,6 +1241,8 @@
     const config = teamConfig();
     const data = loadTeam();
     const box = $('team');
+    const openGoalIntermediates = new Set([...box.querySelectorAll('.goal-inter[open]')]
+      .map(details => details.dataset.goalInter));
     const others = (data?.players || []).filter(p => !ch || p.id !== ch.id);
     const selected = new Set(ch ? loadSel(ch) : []);
     const chosen = others.filter(p => selected.has(p.id));
@@ -1294,11 +1297,11 @@
         const missing = Math.max(0, g.target - done);
         const f = pct(done, g.target);
         const h = myHoursFor(g.item, missing);
-        return `<div class="goal">
+        return { progress: f, html: `<div class="goal">
           <div class="goalhead"><b>${escapeHtml(nameOf(g.item))}</b>
             <span class="muted">${fmt(done)} / ${fmt(g.target)} ${t('pcs')}${missing ? ` · ${t('miss').toLowerCase()} ${fmt(missing)}` : ''}${h ? ` · ${escapeHtml(T[lang].myHours(fmtHours(h)))}` : ''}</span>
             <span class="grow"></span><b class="pct">${pctText(f)}</b>${del}</div>
-          ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>`;
+          ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>` };
       }
       // Výrobok: hlavný cieľ a pod ním medziprodukty a suroviny na zvyšné kusy (ako v pláne).
       // Hotové medziprodukty tímu sa použijú prednostne, suroviny sa rátajú iba na tie, ktoré treba vyrobiť.
@@ -1306,43 +1309,51 @@
       const entries = [{ id: g.item, qty: remaining }];
       const full = Calc.explode(entries, null).rawNeed;
       const { rawNeed, inter } = Calc.explode(entries, teamHave);
-      const byName = (a, b) => nameOf(a.id).localeCompare(nameOf(b.id));
-      const interRows = inter.map(x => ({ id: x.id, inter: true, need: x.need, have: x.have, missing: x.craft, f: pct(x.have, x.need) }))
-        .sort(byName);
+      const incompleteFirst = (a, b) => Number(a.missing === 0) - Number(b.missing === 0) ||
+        nameOf(a.id).localeCompare(nameOf(b.id));
+      const interRows = inter.map(({ id, need, have, craft }) => ({ id, need, have, missing: craft, f: pct(have, need) }))
+        .sort(incompleteFirst);
       const rawRows = [...rawNeed].map(([id, need]) => {
         const have = teamHave(id);
         return { id, need, have, missing: Math.max(0, need - have), f: pct(have, need) };
-      }).sort(byName);
-      const comps = [...interRows, ...rawRows];
+      }).sort(incompleteFirst);
       const hasClaims = Array.isArray(claims);
-      const showClaimColumn = hasClaims || interRows.length > 0;
       // Progres: aká časť surovín na zvyšné kusy je pokrytá (zásobou surovín alebo hotovými medziproduktmi).
       const fullSum = [...full.values()].reduce((a, n) => a + n, 0);
       const missSum = rawRows.reduce((a, c) => a + c.missing, 0);
       const rawFrac = fullSum ? Math.max(0, 1 - missSum / fullSum) : 1;
       const f = g.target ? Math.min(1, (Math.min(done, g.target) + remaining * rawFrac) / g.target) : 1;
       const hours = rawRows.reduce((a, c) => a + myHoursFor(c.id, c.missing), 0);
-      const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
-          <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</span></span></td>
+      const componentTable = (components, isIntermediate) => {
+        const lastColumn = isIntermediate ? 'prof' : hasClaims ? 'claimCol' : '';
+        const rows = components.map(c => `<tr class="${c.missing ? '' : 'ok'}">
+          <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}</span></span></td>
           <td class="n">${fmt(c.need)}</td>
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
           <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td>
-          ${showClaimColumn ? (c.inter
+          ${isIntermediate
             ? `<td class="profession"><small class="who">${escapeHtml(professionName(c.id))}</small></td>`
-            : `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>`) : ''}</tr>`).join('');
+            : hasClaims ? `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
+        return `<table class="comp"><thead><tr><th>${t(isIntermediate ? 'inter' : 'raw')}</th><th class="n">${t('need')}</th>
+          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>
+          ${lastColumn ? `<th>${t(lastColumn)}</th>` : ''}</tr></thead><tbody>${rows}</tbody></table>`;
+      };
       const open = !closedGoals.has(g.id);
-      return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
+      return { progress: f, html: `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
           <span class="muted">${t('doneItems')} ${fmt(done)}${hours ? ` · ${escapeHtml(T[lang].myHours(fmtHours(hours)))}` : ''}</span>
           <span class="grow"></span><b class="pct">${pctText(f)}</b>
           ${remaining ? `<button class="link" type="button" data-toplan="${g.item}" data-missing="${remaining}" title="${t('toPlanTitle')}">${t('toPlan')} (${fmt(remaining)})</button>` : ''}${del}</div>
         ${bar(f)}${who(g.item)}</summary>
-        ${remaining ? `<table class="comp"><thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th>
-          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>${showClaimColumn ? `<th>${t(hasClaims ? 'claimCol' : 'prof')}</th>` : ''}</tr></thead>
-          <tbody>${rows}</tbody></table>` : ''}
-      </details>`;
-    }).join('');
+        ${rawRows.length ? componentTable(rawRows, false) : ''}
+        ${interRows.length ? `<details class="goal-inter" data-goal-inter="${escapeHtml(g.id)}"${openGoalIntermediates.has(g.id) ? ' open' : ''}>
+          <summary>${t('inter')} (${interRows.length})</summary>
+          ${componentTable(interRows, true)}
+        </details>` : ''}
+      </details>` };
+    }).sort((a, b) => Number(a.progress >= 1) - Number(b.progress >= 1))
+      .map(card => card.html).join('');
     const goalTable = goals.length
       ? goalCards + (claims === null && data?.ts ? `<div class="muted">${t('claimsUpdate')}</div>` : '')
       : `<div class="muted">${t('noGoals')}</div>`;
@@ -1612,10 +1623,12 @@
     }
   });
   $('team').addEventListener('toggle', event => {
-    const id = event.target.dataset?.goal;
-    if (id === undefined) return;
-    if (event.target.open) closedGoals.delete(id);
-    else closedGoals.add(id);
+    const goalId = event.target.dataset?.goal;
+    if (goalId !== undefined) {
+      if (event.target.open) closedGoals.delete(goalId);
+      else closedGoals.add(goalId);
+    } else if (event.target.dataset?.goalInter === undefined) return;
+    skin();
   }, true);
   $('team').addEventListener('change', event => {
     if (event.target.dataset?.share !== undefined) {
