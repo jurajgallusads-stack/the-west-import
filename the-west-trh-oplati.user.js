@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – oplatí sa kúpiť? (energia a motivácia na trhu)
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
+// @version      1.1.0
 // @description  Na trhu pri predmetoch s energiou alebo pracovnou motiváciou ukáže, koľko za ne zarobíš na 15-sekundových prácach a či sa oplatí cena. Neposiela žiadne požiadavky na herný server.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -34,6 +34,8 @@
   // Odmena podľa motivácie ide po 25 % schodoch: 76–100 % platí plnú odmenu, 51–75 % tri štvrtiny atď.
   const factor = p => (p <= 0 ? 0 : Math.min(1, Math.ceil(p / 25) / 4));
   const warn = (...args) => console.warn('[TW oplatí sa]', ...args);
+  // Firefox: funkcie zo sandboxu treba hre sprístupniť cez exportFunction.
+  const expose = fn => (typeof exportFunction === 'function' ? exportFunction(fn, game) : fn);
 
   function charKey() {
     const c = game.Character;
@@ -93,7 +95,11 @@
   function capture(rawJobs) {
     if (!charKey()) return;
     const jobs = fromRaw(rawJobs);
-    if (jobs.length) GM_setValue(storeKey(), { ts: Date.now(), jobs });
+    if (jobs.length) {
+      GM_setValue(storeKey(), { ts: Date.now(), jobs });
+      cache.clear();
+      if (typeof refreshMarket === 'function') refreshMarket();
+    }
   }
 
   function getJobs() {
@@ -111,15 +117,16 @@
     const wrapped = function (win, mode, params, callback, ...rest) {
       if (win === 'work' && mode === 'index' && typeof callback === 'function') {
         const inner = callback;
-        callback = function (json, ...args) {
+        callback = expose(function (json, ...args) {
           try { if (json && !json.error && json.jobs) capture(json.jobs); } catch (e) { warn(e); }
           return inner.call(this, json, ...args);
-        };
+        });
       }
       return original.call(this, win, mode, params, callback, ...rest);
     };
-    wrapped[MARK] = true;
-    A[name] = wrapped;
+    const exposed = expose(wrapped);
+    exposed[MARK] = true;
+    A[name] = exposed;
   }
 
   function hookJobs() {
@@ -131,8 +138,9 @@
         try { capture(jobs); } catch (e) { warn(e); }
         return result;
       };
-      wrapped[MARK] = true;
-      JM.initJobs = wrapped;
+      const exposed = expose(wrapped);
+      exposed[MARK] = true;
+      JM.initJobs = exposed;
     }
     ['remoteCallMode', 'remoteCall', 'get'].forEach(wrapAjax);
     return !!(game.Ajax?.remoteCallMode || JM?.initJobs);
@@ -266,63 +274,125 @@
     return el;
   }
 
-  function annotate(offers) {
-    if (!Array.isArray(offers) || !offers.length) return;
+  // Riadky tabuľky „Kúpiť“: ikona | názov (title = meno predmetu) | počet | cena kúp hneď | aukcia | ...
+  const norm = s => String(s || '').trim().toLowerCase();
+  const digits = t => { const d = String(t || '').replace(/[^\d]/g, ''); return d ? Number(d) : 0; };
+  const short = n => {
+    const a = Math.abs(n);
+    if (a < 1000) return fmt(a);
+    return (a < 1e6 ? `${(a / 1000).toFixed(a < 10000 ? 1 : 0)}k` : `${(a / 1e6).toFixed(1)}M`).replace('.', ',');
+  };
+
+  let nameIndex = null;
+  function itemByName(name) {
+    if (!nameIndex) {
+      let all = {};
+      try { all = game.ItemManager?.getAll?.() || {}; } catch { all = {}; }
+      const index = new Map();
+      for (const item of Object.values(all)) {
+        if (!item?.name || item.type === 'recipe' || !Array.isArray(item.usebonus)) continue;
+        const b = bonuses(item);
+        if ((b.energy || b.motivation) && !index.has(norm(item.name))) index.set(norm(item.name), item);
+      }
+      if (!index.size) return null;
+      nameIndex = index;
+    }
+    return nameIndex.get(norm(name)) || null;
+  }
+
+  const stats = { panes: 0, rows: 0, matched: 0, lastError: '' };
+
+  function rowInfo(row) {
+    const cells = row.children;
+    if (!cells || cells.length < 5) return null;
+    const nameCell = cells[1];
+    const first = nameCell.firstElementChild && !nameCell.firstElementChild.classList.contains('twop-badge')
+      ? nameCell.firstElementChild : null;
+    const name = (first?.getAttribute('title') || first?.textContent || nameCell.textContent || '').replace(/\s+/g, ' ').trim();
+    const count = digits(cells[2].textContent) || 1;
+    const buyNow = digits(cells[3].textContent);
+    const bid = digits(cells[4].textContent);
+    return { cells, nameCell, name, count, buyNow, bid };
+  }
+
+  function annotatePane(pane) {
+    stats.panes++;
     installStyle();
     const data = getJobs();
-    for (const offer of offers) {
-      let item;
-      try { item = game.ItemManager?.get?.(offer?.item_id); } catch { item = null; }
-      if (!item) continue;
-      const vendor = document.getElementById(`mpb_vendor_${offer.market_offer_id}`);
-      if (!vendor?.parentNode) continue;
-      vendor.parentNode.querySelector(':scope > .twop-badge')?.remove();
+    for (const row of pane.children) {
+      const info = rowInfo(row);
+      if (!info?.name) continue;
+      stats.rows++;
+      const item = itemByName(info.name);
+      const old = row.querySelector('.twop-badge');
+      if (!item) { old?.remove(); continue; }
+      stats.matched++;
+      const sig = `${info.name}|${info.count}|${info.buyNow}|${info.bid}|${data?.ts ?? 'x'}|${data?.jobs.length ?? 0}`;
+      if (old && row.dataset.twop === sig) continue;
+      old?.remove();
+      row.dataset.twop = sig;
 
-      const b = bonuses(item);
-      if (!b.energy && !b.motivation) continue;
       let el;
       if (!data) {
         el = badge('twop-unknown', '?', `${item.name}\nNepoznám tvoje zárobky z prác. Otvor v hre okno Práce, skript si ho prečíta (nič neposiela).`);
       } else {
         const w = worth(item, data);
-        const price = unitPrice(offer);
+        const total = info.buyNow || info.bid;
+        const price = total ? { price: total / info.count, kind: info.buyNow ? 'buy' : 'bid', count: info.count } : null;
         if (!price) {
-          el = badge('twop-unknown', `≈${money(w.value)}`, explain(item, w, null, data));
+          el = badge('twop-unknown', `≈${short(w.value)}`, explain(item, w, null, data));
         } else {
           const diff = w.value - price.price;
-          el = badge(diff >= 0 ? 'twop-yes' : 'twop-no', `${diff >= 0 ? '✓' : '✗'} ${signed(diff)}`, explain(item, w, price, data));
+          el = badge(diff >= 0 ? 'twop-yes' : 'twop-no', `${diff >= 0 ? '✓ +' : '✗ −'}${short(diff)}`, explain(item, w, price, data));
         }
       }
-      vendor.parentNode.insertBefore(el, vendor);
+      // Do prázdnej bunky aukcie, inak za názov.
+      const target = !info.bid && info.cells[4] ? info.cells[4] : info.nameCell;
+      target.appendChild(el);
     }
   }
 
-  function hookMarket() {
-    const Buy = game.MarketWindow?.Buy;
-    if (typeof Buy?.updateTable !== 'function') return false;
-    if (Buy.updateTable[MARK]) return true;
-    const original = Buy.updateTable;
-    const wrapped = function (data, ...rest) {
-      const result = original.call(this, data, ...rest);
-      try { annotate(data); } catch (e) { warn(e); }
-      return result;
-    };
-    wrapped[MARK] = true;
-    Buy.updateTable = wrapped;
-    return true;
+  // ---------- Sledovanie trhu: MutationObserver, žiadne požiadavky ----------
+  const PANE = 'tw2gui_scrollpane_clipper_contentpane';
+  const queued = new Set();
+  let frame = 0;
+  function queue(pane) {
+    queued.add(pane);
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      for (const p of queued) {
+        if (!p.isConnected) continue;
+        try { annotatePane(p); } catch (e) { stats.lastError = String(e?.message || e); warn(e); }
+      }
+      queued.clear();
+    });
+  }
+  const buyPanes = () => document.querySelectorAll(`#market_buytable .${PANE}, .market-buy .${PANE}`);
+  function refreshMarket() { buyPanes().forEach(queue); }
+
+  function watchMarket() {
+    new MutationObserver(mutations => {
+      for (const m of mutations) {
+        const t = m.target;
+        if (t.nodeType !== 1) continue;
+        if (t.classList.contains(PANE)) {
+          if (t.closest('#market_buytable, .market-buy')) queue(t);
+        } else if (m.addedNodes.length && t.closest?.('.marketplace, #market_buytable, .market-buy')) {
+          t.querySelectorAll(`.${PANE}`).forEach(p => { if (p.closest('#market_buytable, .market-buy')) queue(p); });
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+    refreshMarket();
   }
 
-  // ---------- Štart: najviac 60 pokusov po 1 s, potom sa skript vzdá ----------
+  // ---------- Štart ----------
   let tries = 0;
   (function start() {
-    const jobsReady = hookJobs();
-    const marketReady = hookMarket();
-    if ((jobsReady && marketReady) || ++tries >= 60) {
-      if (!marketReady) warn('trh (MarketWindow.Buy.updateTable) sa nenašiel');
-      return;
-    }
+    if (hookJobs() || ++tries >= 60) return;
     setTimeout(start, 1000);
   })();
+  watchMarket();
 
   // ---------- Menu Tampermonkey ----------
   GM_registerMenuCommand('Oplatí sa: ukázať zárobky z prác', () => {
@@ -341,11 +411,22 @@
       `1 energia v priemere: ${money(full / maxEnergy)}`
     ].filter(Boolean).join('\n'));
   });
+  GM_registerMenuCommand('Oplatí sa: diagnostika', () => {
+    const data = getJobs();
+    window.alert([
+      `Verzia: ${GM_info?.script?.version || '?'}`,
+      `Zárobky z prác: ${data ? `${data.jobs.length} prác (${stamp(data.ts)})` : 'zatiaľ nič, otvor okno Práce'}`,
+      `Zachytenie prác napojené: ${game.JobsModel?.initJobs?.[MARK] || game.Ajax?.remoteCallMode?.[MARK] ? 'áno' : 'nie'}`,
+      `Predmety s energiou/motiváciou: ${(itemByName('\u0000'), nameIndex?.size ?? 0)}`,
+      `Tabuľky trhu teraz: ${buyPanes().length}, spracované: ${stats.panes}, riadky: ${stats.rows}, rozpoznané: ${stats.matched}`,
+      stats.lastError ? `Posledná chyba: ${stats.lastError}` : 'Bez chyby'
+    ].join('\n'));
+  });
   GM_registerMenuCommand('Oplatí sa: vymazať uložené zárobky', () => {
     if (charKey()) GM_deleteValue(storeKey());
     cache.clear();
   });
 
   // Na testy mimo hry.
-  if (game.__twOplatiTest) game.__twOplatiTest({ simulate, factor, fromRaw, fromModels, bonuses, worth, unitPrice, annotate, capture, getJobs });
+  if (game.__twOplatiTest) game.__twOplatiTest({ simulate, factor, fromRaw, fromModels, bonuses, worth, unitPrice, annotatePane, refreshMarket, capture, getJobs, stats });
 })();
