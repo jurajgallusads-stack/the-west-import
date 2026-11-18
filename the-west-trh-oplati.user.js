@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – oplatí sa kúpiť? (energia a motivácia na trhu)
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.1.0
+// @version      1.2.0
 // @description  Na trhu pri predmetoch s energiou alebo pracovnou motiváciou ukáže, koľko za ne zarobíš na 15-sekundových prácach a či sa oplatí cena. Neposiela žiadne požiadavky na herný server.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -200,20 +200,30 @@
   }
 
   const cache = new Map();
+  // Pracovná motivácia: práca, ktorú robíš, platí pod 76 % už len 75 %. Každé 1 % motivácie = 1 práca po 15 s
+  // za plnú odmenu namiesto troch štvrtín, teda zisk 0,25 × odmena za prácu (príklad: 25 % × 100 $ → 625 $).
+  const TIER_GAIN = 0.25;
+
   function worth(item, data) {
     const b = bonuses(item);
     if (!b.energy && !b.motivation) return null;
     const maxEnergy = Number(game.Character?.maxEnergy) || 100;
     const energy = b.energy ? Math.min(maxEnergy, Math.floor(b.energy / 100 * maxEnergy)) : 0;
-    // Motivácia sa prejaví až na prácach, ktoré urobíš: počítame s jednou plnou energiou navyše.
-    const horizon = b.motivation ? maxEnergy : 0;
-    const key = `${data.ts}|${data.jobs.length}|${energy}|${horizon}|${b.motivation}`;
+    const key = `${data.ts}|${data.jobs.length}|${energy}|${b.motivation}`;
     if (!cache.has(key)) {
-      const withItem = simulate(data.jobs, energy + horizon, b.motivation);
-      const without = horizon ? simulate(data.jobs, horizon, 0) : { total: 0 };
-      cache.set(key, { value: withItem.total - without.total, best: withItem.first });
+      const top = data.jobs.reduce((best, j) => (!best || j.full > best.full ? j : best), null);
+      const fromEnergy = energy ? simulate(data.jobs, energy, 0) : { total: 0, first: null };
+      const topPay = top ? Math.ceil(top.full) : 0;
+      const fromMotivation = b.motivation ? Math.round(b.motivation * topPay * TIER_GAIN) : 0;
+      cache.set(key, {
+        value: fromEnergy.total + fromMotivation,
+        fromEnergy: fromEnergy.total,
+        fromMotivation,
+        top: top ? { id: top.id, pay: topPay } : null,
+        best: fromEnergy.first || (top ? { id: top.id, pay: topPay } : null)
+      });
     }
-    return { ...cache.get(key), b, energy, horizon, maxEnergy };
+    return { ...cache.get(key), b, energy, maxEnergy };
   }
 
   function unitPrice(offer) {
@@ -234,22 +244,22 @@
 
   function explain(item, w, price, data) {
     const lines = [item.name || 'Predmet'];
-    if (w.b.energy) lines.push(`Energia +${w.b.energy} % = ${w.energy} energie (max. ${w.maxEnergy}) → ${w.energy} prác po 15 s`);
-    if (w.b.motivation) {
-      lines.push(`Pracovná motivácia +${w.b.motivation} % (všetky práce), počítané na jednu plnú energiu (${w.horizon}) navyše`);
+    if (w.b.energy) {
+      lines.push(`Energia +${w.b.energy} % = ${w.energy} energie (max. ${w.maxEnergy}) → ${w.energy} prác po 15 s: ${money(w.fromEnergy)}`);
+      if (w.best) lines.push(`  najlepšia práca teraz: ${jobName(w.best.id)} – ${money(w.best.pay)} za 15 s`);
     }
-    if (w.best) lines.push(`Najlepšia práca teraz: ${jobName(w.best.id)} – ${money(w.best.pay)} za 15 s`);
+    if (w.b.motivation && w.top) {
+      lines.push(`Pracovná motivácia +${w.b.motivation} % = ${w.b.motivation} prác za plnú odmenu namiesto 75 %:`);
+      lines.push(`  ${w.b.motivation} × 0,25 × ${money(w.top.pay)} (${jobName(w.top.id)}) = ${money(w.fromMotivation)}`);
+    }
     lines.push(`Zarobíš asi: ${money(w.value)}`);
     if (price) {
       lines.push(`Cena za kus: ${money(price.price)}${price.kind === 'bid' ? ' (aktuálna ponuka v aukcii)' : ''}${price.count > 1 ? ` (${price.count} ks v ponuke)` : ''}`);
       lines.push(`Rozdiel: ${signed(w.value - price.price)} → ${w.value >= price.price ? 'oplatí sa' : 'neoplatí sa'}`);
       lines.push(`Kúpiť sa oplatí najviac za ${money(w.value)} za kus.`);
     }
-    if (w.b.motivation && !w.b.energy && w.value === 0) {
-      lines.push('Motivácia ti teraz nič nepridá: tvoje najlepšie práce majú nad 75 %, a tam je odmena už plná.');
-    }
     lines.push(`Údaje o prácach: ${stamp(data.ts)}${data.ts && Date.now() - data.ts > STALE_MS ? ' – staré, otvor okno Práce' : ''}`);
-    lines.push('Ráta iba peniaze za 15 s práce (bez skúseností, produktov a strieborných prác).');
+    lines.push('Ráta iba peniaze za 15 s práce (bez skúseností, produktov; strieborná práca platí 1,5× viac).');
     return lines.join('\n');
   }
 

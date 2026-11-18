@@ -65,7 +65,8 @@ Samostatný skript: [the-west-trh-oplati.user.js](https://raw.githubusercontent.
 
 - Na trhu (Kúpiť) pridá pri predmetoch so **zvýšením energie** alebo **pracovnej motivácie** štítok: zelený **✓ +suma**, keď na 15-sekundových prácach zarobíš viac, než stojí kus, inak červený **✗ −suma**.
 - Bublinka pri myši ukáže výpočet: koľko energie predmet dá (percento z tvojej max. energie), najlepšiu prácu, odhad zárobku, cenu za kus a najvyššiu cenu, pri ktorej sa ešte oplatí.
-- Počíta sa simuláciou: každá 15 s práca stojí 1 energiu a zníži motiváciu práce o 1 %, vždy sa vyberie práca, ktorá práve platí najviac. Odmena je plná pri motivácii nad 75 %, preto pracovná motivácia pridá peniaze iba vtedy, keď ju máš na najlepších prácach nižšiu. Pri motivácii sa ráta s jednou plnou energiou navyše.
+- **Energia:** percento z tvojej max. energie, každá energia je jedna 15 s práca. Počíta sa simuláciou: každá práca zníži motiváciu o 1 % a vždy sa vyberie práca, ktorá práve platí najviac.
+- **Pracovná motivácia:** každé 1 % je jedna práca za plnú odmenu namiesto 75 %. Zisk = body motivácie × 0,25 × odmena najlepšej práce. Príklad: tabak +25 % pri práci za 100 $ dá 25 × 25 $ = 625 $, takže sa oplatí kúpiť pod 625 $.
 - Ráta iba peniaze, nie skúsenosti, produkty ani strieborné práce. Cena za kus je cena „kúp hneď“ / počet kusov, pri aukcii aktuálna ponuka.
 - Zárobky si skript prečíta, keď v hre otvoríš okno **Práce** (alebo keď kalkulačka obnoví nálezku). Dovtedy ukazuje **?**. Pri údajoch starších ako 3 hodiny upozorní, že je dobré okno Práce otvoriť znova.
 
