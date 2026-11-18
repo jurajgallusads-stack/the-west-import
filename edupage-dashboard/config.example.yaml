@@ -1,0 +1,31 @@
+# Skopíruj tento súbor ako config.yaml a vyplň svoje údaje.
+# config.yaml sa nikdy neukladá do gitu (je v .gitignore).
+
+# Ako často sa majú ťahať nové údaje z EduPage (v minútach)
+refresh_minutes: 10
+
+# Kde beží dashboard. 127.0.0.1 = len na tomto počítači.
+# 0.0.0.0 = dostupné aj z mobilu v domácej sieti (http://IP-POCITACA:8080)
+host: 127.0.0.1
+port: 8080
+
+# true = ukážkové údaje bez prihlásenia (na vyskúšanie vzhľadu)
+demo: false
+
+children:
+  - name: Ema                    # ako sa má dieťa volať na dashboarde
+    color: "#7c5cff"             # farba karty
+    subdomain: zsmojaskola       # z adresy https://zsmojaskola.edupage.org
+    username: rodic@email.sk     # rodičovský ALEBO žiacky login
+    password: "heslo"            # alebo vynechaj a použi password_env
+    # password_env: EDUPAGE_PASS_EMA   # heslo z premennej prostredia
+    # Len pri rodičovskom účte: meno dieťaťa ako v EduPage (stačí krstné)
+    # alebo jeho číselné ID. Pri žiackom účte nechaj prázdne.
+    child: "Ema"
+
+  - name: Jakub
+    color: "#ff8a3d"
+    subdomain: zsmojaskola       # môže byť aj iná škola
+    username: rodic@email.sk
+    password: "heslo"
+    child: "Jakub"
