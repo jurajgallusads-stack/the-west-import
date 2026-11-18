@@ -59,6 +59,16 @@ Samostatný skript, nezávislý od kalkulačky: [the-west-predaj.user.js](https:
 - **Alt + klik** na predmet v batohu prepína „nepredávať“, takže ho skript prestane zvýrazňovať (alebo znova začne).
 - Po predaji, nákupe alebo práci sa zvýraznenie samo prepočíta.
 
+## Oplatí sa kúpiť? Energia a motivácia na trhu (samostatný skript)
+
+Samostatný skript: [the-west-trh-oplati.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-trh-oplati.user.js). Inštaluje sa rovnako cez Tampermonkey. Skript **neposiela žiadnu požiadavku** na herný server.
+
+- Na trhu (Kúpiť) pridá pri predmetoch so **zvýšením energie** alebo **pracovnej motivácie** štítok: zelený **✓ +suma**, keď na 15-sekundových prácach zarobíš viac, než stojí kus, inak červený **✗ −suma**.
+- Bublinka pri myši ukáže výpočet: koľko energie predmet dá (percento z tvojej max. energie), najlepšiu prácu, odhad zárobku, cenu za kus a najvyššiu cenu, pri ktorej sa ešte oplatí.
+- Počíta sa simuláciou: každá 15 s práca stojí 1 energiu a zníži motiváciu práce o 1 %, vždy sa vyberie práca, ktorá práve platí najviac. Odmena je plná pri motivácii nad 75 %, preto pracovná motivácia pridá peniaze iba vtedy, keď ju máš na najlepších prácach nižšiu. Pri motivácii sa ráta s jednou plnou energiou navyše.
+- Ráta iba peniaze, nie skúsenosti, produkty ani strieborné práce. Cena za kus je cena „kúp hneď“ / počet kusov, pri aukcii aktuálna ponuka.
+- Zárobky si skript prečíta, keď v hre otvoríš okno **Práce** (alebo keď kalkulačka obnoví nálezku). Dovtedy ukazuje **?**. Pri údajoch starších ako 3 hodiny upozorní, že je dobré okno Práce otvoriť znova.
+
 ## Zaťaženie herného servera
 
 - Otvorenie kalkulačky, výber výrobku, zmena počtu a prepočet neposielajú na herný server **žiadnu** požiadavku. Batoh aj recepty sa čítajú z údajov, ktoré už hra má načítané.
