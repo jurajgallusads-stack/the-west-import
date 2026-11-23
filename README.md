@@ -89,3 +89,7 @@ Samostatný skript: [the-west-trh-oplati.user.js](https://raw.githubusercontent.
 Výsledky sú rovnaké ako v hárku Kalkulačka pre tých istých 23 výrobkov, nálezku a inventár, kým v batohu nie sú hotové medziprodukty. Navyše kalkulačka v hre vie spoločný plán viacerých výrobkov s jedným odpočtom batohu a odpočíta aj hotové medziprodukty, čo tabuľka nerobí.
 
 Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry) ostáva v tabuľke, tento skript ho už nepoužíva. Časť Tím zapisuje do vlastných hárkov „Tím – batohy“ a „Tím – ciele“.
+
+## lenk (samostatný skript)
+
+[the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina pre Lenka. Iba kreslí v prehliadači, na herný server nič neposiela.
