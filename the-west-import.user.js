@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.7.0
+// @version      3.7.1
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -682,12 +682,12 @@
       .twc #twc-plan-filter { max-width: 75%; }
       .twc button.twc-sort { border: 0; background: none; color: inherit; padding: 0; font: inherit; cursor: pointer; }
       .twc .twc-hidden-label { display: none; }
-      .twc .twc-goalpick { display: inline-flex; flex: 0 1 260px; min-width: 0; }
-      .twc #twc-goal-picker { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex: 1; min-width: 0;
-        min-height: 24px; padding: 2px 6px; color: #3b2a14; background: #f7efd9; border: 1px solid #8b6b3f; border-radius: 3px;
-        font: inherit; cursor: pointer; text-align: left; }
-      .twc #twc-goal-picker:disabled { opacity: .55; cursor: default; }
-      .twc #twc-goal-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .twc .twc-goalpick { display: inline-flex; min-width: 0; }
+      /* Výber výrobku pre cieľ: herné tlačidlo (ako Obnoviť tím) so šípkou. */
+      .twc #twc-goal-picker { cursor: pointer; }
+      .twc #twc-goal-picker .textart_title { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+      .twc #twc-goal-name { display: inline-block; min-width: 150px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+      .twc .twc-goal-arrow { font-size: 10px; }
       .twc #twc-goal-list { position: fixed; inset: auto; margin: 0; padding: 0; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
         overscroll-behavior: contain; background: #f7efd9; border: 1px solid #8b6b3f; border-radius: 3px; box-shadow: 0 3px 8px rgba(0,0,0,.35); }
       .twc .twc-goalopt { display: block; width: 100%; height: 22px; padding: 0 6px; border: 0; background: none; color: #3b2a14;
@@ -1267,8 +1267,9 @@
     const options = ids.map(id => `<button type="button" role="option" class="twc-goalopt" data-goalpick="${id}"
       aria-selected="${id === goalItem}">${escapeHtml(nameOf(id))}</button>`).join('');
     return `<span class="twc-goalpick">
-      <button id="twc-goal-picker" type="button" popovertarget="twc-goal-list" aria-label="${t('product')}" ${ids.length ? '' : 'disabled'}>
-        <span id="twc-goal-name">${goalItem ? escapeHtml(nameOf(goalItem)) : '–'}</span><span aria-hidden="true">▾</span></button>
+      <button id="twc-goal-picker" class="tw2gui_button" type="button" popovertarget="twc-goal-list" aria-label="${t('product')}" ${ids.length ? '' : 'disabled'}>
+        <div class="tw2gui_button_right_cap"></div><div class="tw2gui_button_left_cap"></div><div class="tw2gui_button_middle_bg"></div>
+        <div class="textart_title"><span id="twc-goal-name">${goalItem ? escapeHtml(nameOf(goalItem)) : '–'}</span><span class="twc-goal-arrow" aria-hidden="true">▾</span></div></button>
       <div id="twc-goal-list" popover="auto" role="listbox" aria-label="${t('product')}">${options}</div></span>`;
   }
   // Hranice herného okna (medzi hornou a spodnou lištou hry).
