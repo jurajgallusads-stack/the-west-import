@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.5.0
+// @version      3.6.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -229,6 +229,7 @@
       bagMissing: 'Batoh ešte nie je načítaný. Otvor v hre batoh (inventár) a kalkulačka si ho prečíta.',
       category: 'Kategória', all: 'Všetky', lprof: 'Remeslo', allProf: 'Všetky remeslá', noSource: 'nedá sa nájsť prácou (kúpiš alebo získaš inak)', product: 'Výrobok', qty: 'Počet', add: 'Pridať',
       plan: 'Plán', remove: 'Odstrániť', emptyPlan: 'Pridaj výrobok a počet kusov.',
+      allPlanProducts: 'Všetky výrobky', noPlanRaws: 'Na tento výrobok netreba zbierať suroviny.',
       hours: 'Hodiny', energy: 'Energia', unavailable: 'Nedostupné suroviny',
       total: 'Spolu', missingLv: n => `chýba ${n}`,
       raw: 'Surovina', need: 'Potrebné', have: 'V batohu', miss: 'Chýba', job: 'Vhodná práca', chance: 'Isté ks / h',
@@ -262,6 +263,7 @@
       bagMissing: 'Batoh ještě není načtený. Otevři ve hře batoh (inventář) a kalkulačka si ho přečte.',
       category: 'Kategorie', all: 'Všechny', lprof: 'Řemeslo', allProf: 'Všechna řemesla', noSource: 'nedá se najít prací (koupíš nebo získáš jinak)', product: 'Výrobek', qty: 'Počet', add: 'Přidat',
       plan: 'Plán', remove: 'Odebrat', emptyPlan: 'Přidej výrobek a počet kusů.',
+      allPlanProducts: 'Všechny výrobky', noPlanRaws: 'Na tento výrobek není potřeba sbírat suroviny.',
       hours: 'Hodiny', energy: 'Energie', unavailable: 'Nedostupné suroviny',
       total: 'Celkem', missingLv: n => `chybí ${n}`,
       raw: 'Surovina', need: 'Potřebné', have: 'V batohu', miss: 'Chybí', job: 'Vhodná práce', chance: 'Jisté ks / h',
@@ -598,16 +600,25 @@
       ${groupframe(`<div class="row twc-status"><span id="twc-who" class="grow"></span><span class="twc-langs"><button type="button" data-lang="sk">SK</button><button type="button" data-lang="cz">CZ</button></span><button id="twc-refresh" class="btn" type="button"></button></div>`)}
       <div id="twc-message" class="muted" aria-live="polite"></div>
       <div class="row twc-add">
-        <label><span id="twc-lprof"></span> <select id="twc-profession"></select></label>
+        <label class="twc-plan-field"><span id="twc-lprof"></span><select id="twc-profession"></select></label>
         <label><span id="twc-lcat"></span> <select id="twc-category"></select></label>
       </div>
       <div class="row twc-add">
-        <label class="grow"><span id="twc-lprod" class="twc-hidden-label"></span><select id="twc-product"></select></label>
+        <div class="twc-plan-field twc-product-field">
+          <span id="twc-lprod">Produkt</span>
+          <button id="twc-product-picker" type="button" popovertarget="twc-product-list" aria-labelledby="twc-lprod twc-product-name" disabled>
+            <span id="twc-product-name"></span><span aria-hidden="true">▾</span>
+          </button>
+          <div id="twc-product-list" popover="auto"><select id="twc-product" size="8" aria-labelledby="twc-lprod"></select></div>
+        </div>
         <label><span id="twc-lqty" class="twc-hidden-label"></span><input id="twc-qty" type="number" min="1" step="1" value="1"></label>
         <button id="twc-add" class="btn" type="button"></button>
       </div>
       </div>
       <div id="twc-plan"></div>
+      <label id="twc-filter-row" class="row twc-add" hidden>
+        <span id="twc-filter-label"></span><select id="twc-plan-filter" class="twc-native-select"></select>
+      </label>
       <div id="twc-summary" class="sum"></div>
       <div id="twc-results"></div>
     </div>
@@ -656,6 +667,20 @@
       .twc .twc-status { min-height: 36px; }
       .twc .twc-add { margin: 6px 2px; }
       .twc .twc-add label { display: inline-flex; align-items: center; gap: 6px; }
+      .twc .twc-plan-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+      .twc .twc-plan-field > span:first-child { min-width: 52px; }
+      .twc .twc-product-field { flex: 0 1 388px; }
+      .twc #twc-product-picker, .twc #twc-plan-filter {
+        color: #3b2a14; background: #f7efd9; border: 1px solid #8b6b3f; border-radius: 3px; font: inherit; }
+      .twc #twc-product-picker { display: flex; justify-content: space-between; align-items: center; gap: 6px;
+        flex: 1; min-width: 0; min-height: 24px; padding: 2px 6px; cursor: pointer; text-align: left; }
+      .twc #twc-product-picker:disabled { opacity: .55; cursor: default; }
+      .twc #twc-product-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .twc #twc-product-list { position: fixed; inset: auto; margin: 0; padding: 0; border: 0; }
+      .twc #twc-product { display: block; width: 100%; height: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; }
+      .twc #twc-product option { padding: 3px 5px; }
+      .twc #twc-plan-filter { max-width: 75%; }
+      .twc button.twc-sort { border: 0; background: none; color: inherit; padding: 0; font: inherit; cursor: pointer; }
       .twc .twc-hidden-label { display: none; }
       .twc #twc-message { margin: 0 4px 4px; }
       .twc .twc-foot { margin: 10px 4px 0; }
@@ -755,6 +780,7 @@
       .twc .claimline { font-size: 11px; color: #5b4a35; margin-top: 2px; }
       .twc small.who { display: block; color: #6e6152; font-size: 10px; font-weight: normal; line-height: 1.2; }
       .twc table.comp { margin-top: 6px; }
+      .twc .goal-inter > summary { margin: 6px 0; color: #5b3a12; }
       .twc table.comp td { padding: 0 8px; }
       .twc table.comp td.profession { text-align: center; font-style: italic; text-transform: lowercase; }
       .twc table.comp td:first-child { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
@@ -803,7 +829,7 @@
     const node = el.jquery ? el[0] : el;
     node.dataset.twcSig = sig;
     if (sel.title) node.title = sel.title;
-    const width = sel.id === 'twc-product' ? 330 : sel.id === 'twc-goalitem' ? 250 : 150;
+    const width = sel.id === 'twc-goalitem' ? 250 : 150;
     try { combo.setWidth(width); } catch { /* staršia hra */ }
     node.addEventListener('click', () => setTimeout(() => fitSelectbox(node), 0));
     sel.classList.add('twc-skinned');
@@ -995,7 +1021,7 @@
     skinning = true;
     try {
       root.querySelectorAll('button.btn').forEach(skinButton);
-      root.querySelectorAll('select').forEach(skinSelect);
+      root.querySelectorAll('select:not(#twc-product, .twc-native-select)').forEach(skinSelect);
       root.querySelectorAll('input[type=number]:not([data-qty])').forEach(skinNumber);
       root.querySelectorAll('input[type=checkbox]').forEach(skinCheckbox);
       root.querySelectorAll('table').forEach(skinTable);
@@ -1054,7 +1080,17 @@
     btn.disabled = refreshing || Date.now() < cooldownUntil;
   }
 
+  function updateProductPicker() {
+    const prod = $('product');
+    const label = prod.selectedOptions[0]?.textContent || '–';
+    $('product-name').textContent = label;
+    const picker = $('product-picker');
+    picker.title = label;
+    picker.disabled = !prod.options.length;
+  }
+
   function renderSelects() {
+    $('product-list').hidePopover();
     const ch = character();
     const store = ch ? loadStore(ch) : null;
     const level = ch?.level ?? 0;
@@ -1082,7 +1118,8 @@
       const label = `${nameOf(p.id)} (${p.lvl}) – ${fmtHours(hours)} h${extra}`;
       return `<option value="${p.id}" title="${escapeHtml(p.eff || '')}">${escapeHtml(label)}</option>`;
     }).join('');
-    if ([...prod.options].some(o => o.value === keepProduct)) prod.value = keepProduct;
+    prod.value = [...prod.options].some(o => o.value === keepProduct) ? keepProduct : (prod.options[0]?.value || '');
+    updateProductPicker();
   }
 
   function renderPlan() {
@@ -1105,6 +1142,8 @@
       }).join('')}</tbody></table>`;
   }
 
+  let planSort = { key: '', direction: -1 };
+
   function renderResults() {
     const ch = character();
     const entries = ch ? loadPlan(ch) : [];
@@ -1119,20 +1158,46 @@
     const haveTitle = () => '';
     const haveLabel = t('have');
 
-    const result = Calc.plan(entries.map(([id, qty]) => ({ id, qty })), store, level, bag);
+    const filter = $('plan-filter');
+    const selected = filter.value;
+    const products = [...new Set(entries.map(([id]) => id))].filter(id => Calc.product(id))
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    const filterKey = [lang, ...products].join(':');
+    if (filter.dataset.products !== filterKey) {
+      filter.innerHTML = `<option value="">${t('allPlanProducts')}</option>` + products.map(id =>
+        `<option value="${id}">${escapeHtml(nameOf(id))}</option>`).join('');
+      filter.dataset.products = filterKey;
+      filter.value = products.some(id => String(id) === selected) ? selected : '';
+    }
+    $('filter-row').hidden = !products.length;
+
+    const visibleEntries = filter.value ? entries.filter(([id]) => String(id) === filter.value) : entries;
+    const result = Calc.plan(visibleEntries.map(([id, qty]) => ({ id, qty })), store, level, bag);
     const sum = $('summary');
     const res = $('results');
-    if (!result.raws.length) {
+    if (!result.raws.length && !result.inter.length) {
       sum.innerHTML = '';
-      res.innerHTML = '';
+      res.innerHTML = filter.value ? `<div class="muted">${t('noPlanRaws')}</div>` : '';
       return;
     }
     sum.innerHTML = `
       <div>${t('hours')}<b>${fmtHours(result.hours)}</b></div>
       <div>${t('energy')}<b>${fmt(Math.round(result.energy))}</b></div>`;
 
+    const { key, direction } = planSort;
+    const sortHeader = (column, label) => {
+      const order = key !== column ? 'none' : direction > 0 ? 'ascending' : 'descending';
+      const arrow = order === 'none' ? '↕' : order === 'ascending' ? '▲' : '▼';
+      return `<th class="n" aria-sort="${order}"><button type="button" class="twc-sort" data-plan-sort="${column}">${t(label)} <span aria-hidden="true">${arrow}</span></button></th>`;
+    };
     const rows = result.raws
-      .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)))
+      .sort((a, b) => {
+        const byName = () => nameOf(a.id).localeCompare(nameOf(b.id));
+        if (!key || a[key] === b[key]) return byName();
+        if (a[key] === null) return 1;
+        if (b[key] === null) return -1;
+        return direction * (a[key] - b[key]);
+      })
       .map(r => {
         if (r.job.jobId === null) {
           return `<tr class="${r.missing > 0 ? 'na' : 'ok'}"><td title="${escapeHtml(t('noSource'))}">${ico(r.id)}${escapeHtml(nameOf(r.id))}</td>
@@ -1166,14 +1231,14 @@
         <td>${escapeHtml(professionName(r.id))}</td></tr>`).join('');
 
     res.innerHTML = `
-      <table class="twc-scroll twc-fill twc-center">
+      ${rows ? `<table class="twc-scroll twc-fill twc-center">
         <thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th>
-          <th class="n">${t('miss')}</th><th class="n">${t('chance')}</th>
-          <th class="n">${t('hours')}</th><th class="n">${t('energy')}</th></tr></thead>
+          ${sortHeader('missing', 'miss')}<th class="n">${t('chance')}</th>
+          ${sortHeader('hours', 'hours')}<th class="n">${t('energy')}</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr><td colspan="5">${t('total')}</td><td class="n">${fmtHours(result.hours)}</td>
           <td class="n">${fmt(Math.round(result.energy))}</td></tr></tfoot>
-      </table>
+      </table>` : filter.value ? `<div class="muted">${t('noPlanRaws')}</div>` : ''}
       ${inter ? `<details><summary>${t('inter')} (${result.inter.length})</summary>
         <p class="muted">${t('interNote')}</p>
         <table class="twc-scroll twc-center" data-max="120"><thead><tr><th>${t('inter')}</th><th class="n">${t('need')}</th><th class="n">${haveLabel}</th><th class="n">${t('craft')}</th><th>${t('prof')}</th></tr></thead>
@@ -1208,6 +1273,8 @@
     const config = teamConfig();
     const data = loadTeam();
     const box = $('team');
+    const openGoalIntermediates = new Set([...box.querySelectorAll('.goal-inter[open]')]
+      .map(details => details.dataset.goalInter));
     const others = (data?.players || []).filter(p => !ch || p.id !== ch.id);
     const selected = new Set(ch ? loadSel(ch) : []);
     const chosen = others.filter(p => selected.has(p.id));
@@ -1262,11 +1329,11 @@
         const missing = Math.max(0, g.target - done);
         const f = pct(done, g.target);
         const h = myHoursFor(g.item, missing);
-        return `<div class="goal">
+        return { progress: f, html: `<div class="goal">
           <div class="goalhead"><b>${escapeHtml(nameOf(g.item))}</b>
             <span class="muted">${fmt(done)} / ${fmt(g.target)} ${t('pcs')}${missing ? ` · ${t('miss').toLowerCase()} ${fmt(missing)}` : ''}${h ? ` · ${escapeHtml(T[lang].myHours(fmtHours(h)))}` : ''}</span>
             <span class="grow"></span><b class="pct">${pctText(f)}</b>${del}</div>
-          ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>`;
+          ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>` };
       }
       // Výrobok: hlavný cieľ a pod ním medziprodukty a suroviny na všetky kusy cieľa (ako v pláne).
       // Hotové výrobky v batohoch sa nerátajú, cieľ sa vyrába celý.
@@ -1275,43 +1342,51 @@
       const entries = [{ id: g.item, qty: remaining }];
       const full = Calc.explode(entries, null).rawNeed;
       const { rawNeed, inter } = Calc.explode(entries, teamHave);
-      const byName = (a, b) => nameOf(a.id).localeCompare(nameOf(b.id));
-      const interRows = inter.map(x => ({ id: x.id, inter: true, need: x.need, have: x.have, missing: x.craft, f: pct(x.have, x.need) }))
-        .sort(byName);
+      const incompleteFirst = (a, b) => Number(a.missing === 0) - Number(b.missing === 0) ||
+        nameOf(a.id).localeCompare(nameOf(b.id));
+      const interRows = inter.map(({ id, need, have, craft }) => ({ id, need, have, missing: craft, f: pct(have, need) }))
+        .sort(incompleteFirst);
       const rawRows = [...rawNeed].map(([id, need]) => {
         const have = teamHave(id);
         return { id, need, have, missing: Math.max(0, need - have), f: pct(have, need) };
-      }).sort(byName);
-      const comps = [...interRows, ...rawRows];
+      }).sort(incompleteFirst);
       const hasClaims = Array.isArray(claims);
-      const showClaimColumn = hasClaims || interRows.length > 0;
       // Progres: aká časť surovín na zvyšné kusy je pokrytá (zásobou surovín alebo hotovými medziproduktmi).
       const fullSum = [...full.values()].reduce((a, n) => a + n, 0);
       const missSum = rawRows.reduce((a, c) => a + c.missing, 0);
       const rawFrac = fullSum ? Math.max(0, 1 - missSum / fullSum) : 1;
       const f = g.target ? rawFrac : 1;
       const hours = rawRows.reduce((a, c) => a + myHoursFor(c.id, c.missing), 0);
-      const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
-          <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</span></span></td>
+      const componentTable = (components, isIntermediate) => {
+        const lastColumn = isIntermediate ? 'prof' : hasClaims ? 'claimCol' : '';
+        const rows = components.map(c => `<tr class="${c.missing ? '' : 'ok'}">
+          <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}</span></span></td>
           <td class="n">${fmt(c.need)}</td>
           <td class="n"><b>${fmt(c.have)}</b>${who(c.id)}</td>
           <td class="n miss">${c.missing ? fmt(c.missing) : '✓'}</td>
           <td class="prog">${bar(c.f)}<small>${pctText(c.f)}</small></td>
-          ${showClaimColumn ? (c.inter
+          ${isIntermediate
             ? `<td class="profession"><small class="who">${escapeHtml(professionName(c.id))}</small></td>`
-            : `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>`) : ''}</tr>`).join('');
+            : hasClaims ? `<td>${c.missing ? claimCell(g.id, c.id) : ''}</td>` : ''}</tr>`).join('');
+        return `<table class="comp"><thead><tr><th>${t(isIntermediate ? 'inter' : 'raw')}</th><th class="n">${t('need')}</th>
+          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>
+          ${lastColumn ? `<th>${t(lastColumn)}</th>` : ''}</tr></thead><tbody>${rows}</tbody></table>`;
+      };
       const open = !closedGoals.has(g.id);
-      return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
+      return { progress: f, html: `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
           <span class="muted">${[done ? escapeHtml(T[lang].inBagsIgnored(fmt(done))) : '', hours ? escapeHtml(T[lang].myHours(fmtHours(hours))) : ''].filter(Boolean).join(' · ')}</span>
           <span class="grow"></span><b class="pct">${pctText(f)}</b>
           ${remaining ? `<button class="link" type="button" data-toplan="${g.item}" data-missing="${remaining}" title="${t('toPlanTitle')}">${t('toPlan')} (${fmt(remaining)})</button>` : ''}${del}</div>
         ${bar(f)}</summary>
-        ${remaining ? `<table class="comp"><thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th>
-          <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>${showClaimColumn ? `<th>${t(hasClaims ? 'claimCol' : 'prof')}</th>` : ''}</tr></thead>
-          <tbody>${rows}</tbody></table>` : ''}
-      </details>`;
-    }).join('');
+        ${rawRows.length ? componentTable(rawRows, false) : ''}
+        ${interRows.length ? `<details class="goal-inter" data-goal-inter="${escapeHtml(g.id)}"${openGoalIntermediates.has(g.id) ? ' open' : ''}>
+          <summary>${t('inter')} (${interRows.length})</summary>
+          ${componentTable(interRows, true)}
+        </details>` : ''}
+      </details>` };
+    }).sort((a, b) => Number(a.progress >= 1) - Number(b.progress >= 1))
+      .map(card => card.html).join('');
     const goalTable = goals.length
       ? goalCards + (claims === null && data?.ts ? `<div class="muted">${t('claimsUpdate')}</div>` : '')
       : `<div class="muted">${t('noGoals')}</div>`;
@@ -1359,7 +1434,7 @@
   function renderLabels() {
     $('lcat').textContent = t('category');
     $('lprof').textContent = t('lprof');
-    $('lprod').textContent = t('product');
+    $('filter-label').textContent = t('product');
     $('lqty').textContent = t('qty');
     $('add').textContent = t('add');
     $('foot').textContent = t('foot');
@@ -1475,6 +1550,54 @@
     GM_setValue('prof', $('profession').value);
     renderSelects();
   });
+  const productList = $('product-list');
+  const productSelect = $('product');
+  const productPicker = $('product-picker');
+  productList.addEventListener('beforetoggle', event => {
+    if (event.newState !== 'open') return;
+    const anchor = productPicker.getBoundingClientRect();
+    const panel = root.getBoundingClientRect();
+    const below = Math.min(panel.bottom, window.innerHeight) - anchor.bottom - 2;
+    const above = anchor.top - Math.max(panel.top, 0) - 2;
+    const desired = Math.min(176, productSelect.options.length * 23 + 2);
+    const openBelow = below >= desired || below >= above;
+    const height = Math.min(desired, Math.max(0, openBelow ? below : above));
+    Object.assign(productList.style, {
+      top: `${openBelow ? anchor.bottom + 2 : anchor.top - height - 2}px`,
+      left: `${anchor.left}px`,
+      width: `${anchor.width}px`,
+      height: `${height}px`
+    });
+  });
+  productList.addEventListener('toggle', event => {
+    if (event.newState === 'open') productSelect.focus({ preventScroll: true });
+  });
+  productList.addEventListener('wheel', event => event.stopPropagation(), { passive: true });
+  productSelect.addEventListener('change', updateProductPicker);
+  productSelect.addEventListener('click', event => {
+    if (event.target.tagName === 'OPTION') productList.hidePopover();
+  });
+  productSelect.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    productList.hidePopover();
+    productPicker.focus();
+  });
+  window.addEventListener('resize', () => productList.hidePopover());
+  $('plan-filter').addEventListener('change', renderResults);
+  $('results').addEventListener('click', event => {
+    const button = event.target.closest('[data-plan-sort]');
+    if (!button) return;
+    const key = button.dataset.planSort;
+    planSort = { key, direction: planSort.key === key ? -planSort.direction : -1 };
+    const hadFocus = button === document.activeElement;
+    renderResults();
+    if (hadFocus) {
+      skin();
+      $('results').querySelector(`[data-plan-sort="${key}"]`)?.focus({ preventScroll: true });
+    }
+  });
   $('add').addEventListener('click', () => {
     const id = Number($('product').value);
     const qty = Math.max(1, Math.floor(Number($('qty').value) || 1));
@@ -1533,10 +1656,12 @@
     }
   });
   $('team').addEventListener('toggle', event => {
-    const id = event.target.dataset?.goal;
-    if (id === undefined) return;
-    if (event.target.open) closedGoals.delete(id);
-    else closedGoals.add(id);
+    const goalId = event.target.dataset?.goal;
+    if (goalId !== undefined) {
+      if (event.target.open) closedGoals.delete(goalId);
+      else closedGoals.add(goalId);
+    } else if (event.target.dataset?.goalInter === undefined) return;
+    skin();
   }, true);
   $('team').addEventListener('change', event => {
     if (event.target.dataset?.share !== undefined) {
