@@ -16,12 +16,12 @@ Používateľský skript pre Tampermonkey na českých a slovenských svetoch Th
 
 ## Inštalácia
 
-1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.4.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
+1. S nainštalovaným Tampermonkey otvor [inštalačný súbor](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-import.user.js) a potvrď inštaláciu (alebo aktualizáciu na verziu 3.5.0). Pri aktualizácii môže Tampermonkey požiadať o povolenie pripojenia na script.google.com, to je pre časť Tím.
 2. Obnov stránku herného sveta. Ak sa ikona neobjaví, skontroluj [povolenie používateľských skriptov v Tampermonkey](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
 
 ## Používanie
 
-1. Klikni na ikonu kalkulačky v rade posilňovačov. Má rovnaký rám a rozostupy ako ikona triedy a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Hore stojí postava s nálezkou a výber výrobku (v záložke Tím zdieľanie a zoznam hráčov). Tabuľky majú pevnú hlavičku a rolujú sa vo vlastnom posuvníku. Suroviny a medziprodukty majú ikonu v kruhu ako práce na mape. Ďalší klik na ikonu okno zatvorí.
+1. Klikni na ikonu kalkulačky v rade posilňovačov. Má rovnaký rám a rozostupy ako ikona triedy a prémia. Kalkulačka sa otvorí ako **bežné okno hry**: s rovnakým rámom, titulkom, záložkami **Môj plán** a **Tím**, tlačidlami na zbalenie a zatvorenie, posúvaním a posuvníkom ako ostatné okná The West. Tlačidlá, rozbaľovacie zoznamy, polia, zaškrtávacie políčka a tabuľky majú vzhľad hry. Hore stojí postava s nálezkou a výber výrobku (v záložke Tím zdieľanie a zoznam hráčov). Dlhé rozbaľovacie zoznamy majú vlastný posuvník a nevyjdú mimo herné okno. Tabuľky majú pevnú hlavičku a rolujú sa vo vlastnom posuvníku. Suroviny a medziprodukty majú ikonu v kruhu ako práce na mape. Ďalší klik na ikonu okno zatvorí.
 2. Pri prvom použití
 3. Vyber remeslo, kategóriu a výrobok (zoradené podľa hodín na 1 kus), zadaj počet a klikni **Pridať**. Takto pridáš aj ďalšie výrobky. Počty v pláne môžeš meniť priamo v tabuľke.
 4. Ak kalkulačka hlási nenačítaný batoh, otvor v hre batoh (inventár). Kalkulačka ho potom prečíta sama.
@@ -35,7 +35,7 @@ Tím má v kalkulačke vlastnú kartu **Tím**, oddelenú od karty **Môj plán*
 3. Zdieľanie je dobrovoľné. Kto zaškrtne **Zdieľať môj batoh s tímom**, toho batoh sa pošle tímu. Potom sa posiela sám pri otvorení kalkulačky, keď sa zmenil, inak najviac raz za 10 minút. Po odškrtnutí sa batoh z tímu odstráni.
 4. V zozname hráčov, ktorí zdieľajú batoh, zaškrtni tých, ktorých chceš rátať do spoločných cieľov.
 5. **Spoločné ciele:** vyber položku (surovinu, medziprodukt alebo výrobok) a počet a klikni **Pridať cieľ**.
-   - Pri výrobku (napríklad Zázračná tinktúra – 100 ks) je hore hlavný cieľ s celkovým percentom a hotovými kusmi. Pod ním sú medziprodukty a suroviny potrebné na zvyšné kusy: potrebné, máme, chýba a progres v percentách. Hotové medziprodukty celého tímu sa použijú prednostne (napríklad 101 ornamentov pri 50 lucernách), suroviny sa rátajú iba na tie, ktoré treba ešte vyrobiť.
+   - Pri výrobku (napríklad Zázračná tinktúra – 100 ks) je hore hlavný cieľ s celkovým percentom. Hotové kusy výrobku, ktoré už máte v batohoch, sa nerátajú (pri nich je len poznámka, koľko ich je), cieľ sa vyrába celý. Pod ním sú medziprodukty a suroviny potrebné na všetky kusy cieľa: potrebné, máme, chýba a progres v percentách. Hotové medziprodukty celého tímu sa použijú prednostne (napríklad 101 ornamentov pri 50 lucernách), suroviny sa rátajú iba na tie, ktoré treba ešte vyrobiť.
    - Kto koľko prispel, je malým sivým písmom pod číslom. Mená hráčov sú skrátené: dlhšie meno na prvé slovo, najviac 5 znakov (celé meno je v bublinke pri myši).
    - **Kto hľadá:** pri surovine v cieli klikni **beriem** a ostatní uvidia tvoje meno, aby ju nehľadali dvaja. Opätovným kliknutím (**nechám**) ju uvoľníš. Vyžaduje tímový skript verzie 3.
    - Pri cieli je aj odhad hodín pre teba a pri výrobku tlačidlo **do plánu**, ktoré pridá chýbajúce kusy do tvojho plánu. Cieľ sa dá zbaliť kliknutím na jeho názov.

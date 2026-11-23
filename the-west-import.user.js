@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.4.2
+// @version      3.5.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -248,7 +248,7 @@
       teamFail: 'Spojenie s tímom zlyhalo. Skús to znova.', changeCode: 'Zmeniť tímový kód', loaded: 'Načítané',
       players: 'Hráči, ktorí zdieľajú batoh – zaškrtni, koho rátať do cieľov', nobody: 'Zatiaľ nikto ďalší nezdieľa svoj batoh.', updated: 'aktualizované',
       goals: 'Spoločné ciele', noGoals: 'Zatiaľ žiadny spoločný cieľ.', item: 'Položka', goalTarget: 'Cieľ', me: 'Ja', sum: 'Spolu',
-      addGoal: 'Pridať cieľ', delGoal: 'Zmazať cieľ', goalAdded: 'Cieľ je pridaný.', goalDeleted: 'Cieľ je zmazaný.', myHours: h => `≈ ${h} h pre mňa`,
+      addGoal: 'Pridať cieľ', delGoal: 'Zmazať cieľ', goalAdded: 'Cieľ je pridaný.', goalDeleted: 'Cieľ je zmazaný.', myHours: h => `≈ ${h} h pre mňa`, inBagsIgnored: n => `v batohoch ${n} ks (nerátajú sa)`,
       haveTeam: 'V batohu (tím)', claimCol: 'Kto hľadá', claim: 'beriem', unclaim: 'nechám', claimSaved: 'Uložené.', claimsUpdate: 'Pre tlačidlo „beriem“ treba aktualizovať tímový skript na verziu 3.', myPlan: 'Môj plán', pcs: 'ks', doneItems: 'hotové', teamHas: 'Máme', progress: 'Progres', nobodyHas: 'zatiaľ nikto', raws: 'Suroviny', inters: 'Medziprodukty', products: 'Výrobky',
       goalsNote: 'Počíta sa tvoj batoh a zaškrtnutí hráči. Ciele vidí celý tím.', by: 'zadal'
     },
@@ -281,7 +281,7 @@
       teamFail: 'Spojení s týmem selhalo. Zkus to znovu.', changeCode: 'Změnit týmový kód', loaded: 'Načteno',
       players: 'Hráči, kteří sdílejí batoh – zaškrtni, koho počítat do cílů', nobody: 'Zatím nikdo další nesdílí svůj batoh.', updated: 'aktualizováno',
       goals: 'Společné cíle', noGoals: 'Zatím žádný společný cíl.', item: 'Položka', goalTarget: 'Cíl', me: 'Já', sum: 'Celkem',
-      addGoal: 'Přidat cíl', delGoal: 'Smazat cíl', goalAdded: 'Cíl je přidaný.', goalDeleted: 'Cíl je smazaný.', myHours: h => `≈ ${h} h pro mě`,
+      addGoal: 'Přidat cíl', delGoal: 'Smazat cíl', goalAdded: 'Cíl je přidaný.', goalDeleted: 'Cíl je smazaný.', myHours: h => `≈ ${h} h pro mě`, inBagsIgnored: n => `v batozích ${n} ks (nepočítají se)`,
       haveTeam: 'V batohu (tým)', claimCol: 'Kdo hledá', claim: 'beru', unclaim: 'nechám', claimSaved: 'Uloženo.', claimsUpdate: 'Pro tlačítko „beru“ je třeba aktualizovat týmový skript na verzi 3.', myPlan: 'Můj plán', pcs: 'ks', doneItems: 'hotovo', teamHas: 'Máme', progress: 'Postup', nobodyHas: 'zatím nikdo', raws: 'Suroviny', inters: 'Meziprodukty', products: 'Výrobky',
       goalsNote: 'Počítá se tvůj batoh a zaškrtnutí hráči. Cíle vidí celý tým.', by: 'zadal'
     }
@@ -805,8 +805,40 @@
     if (sel.title) node.title = sel.title;
     const width = sel.id === 'twc-product' ? 330 : sel.id === 'twc-goalitem' ? 250 : 150;
     try { combo.setWidth(width); } catch { /* staršia hra */ }
+    node.addEventListener('click', () => setTimeout(() => fitSelectbox(node), 0));
     sel.classList.add('twc-skinned');
     if (face) face.replaceWith(node); else sel.after(node);
+  }
+  // Rozbalený zoznam ostane v hernom okne: dlhý zoznam dostane vlastný posuvník
+  // a ak je pod výberom málo miesta, otvorí sa nahor.
+  function fitSelectbox(face) {
+    const boxes = [...document.querySelectorAll('div.tw2gui_selectbox')]
+      .filter(b => b.offsetParent && b.getBoundingClientRect().height > 0);
+    const box = boxes[boxes.length - 1];
+    const list = box && (box.querySelector('ul.tw2gui_selectbox_content') || box.querySelector('ul'));
+    if (!list) return;
+    list.style.maxHeight = '';
+    const margin = 6;
+    const bar = document.getElementById('ui_bottombar')?.getBoundingClientRect();
+    const top = Math.max(0, document.getElementById('ui_topbar')?.getBoundingClientRect().bottom || 0) + margin;
+    const bottom = Math.min(window.innerHeight, bar && bar.height ? bar.bottom : Infinity) - margin;
+    const f = face.getBoundingClientRect();
+    const r = box.getBoundingClientRect();
+    if (r.top >= top && r.bottom <= bottom) return;
+    const listH = list.getBoundingClientRect().height;
+    const frame = r.height - listH;
+    const below = bottom - Math.max(r.top, f.bottom) - frame;
+    const above = f.top - top - frame;
+    list.style.overflowY = 'auto';
+    list.style.overflowX = 'hidden';
+    if (below >= 200 || below >= above) {
+      list.style.maxHeight = `${Math.max(60, Math.floor(below))}px`;
+      return;
+    }
+    const h = Math.min(listH, Math.floor(above));
+    list.style.maxHeight = `${Math.max(60, h)}px`;
+    const shift = (f.top - (Math.max(60, h) + frame)) - r.top;
+    box.style.top = `${(parseFloat(getComputedStyle(box).top) || 0) + shift}px`;
   }
   function skinNumber(input) {
     if (input.classList.contains('twc-skinned-num')) return;
@@ -1236,9 +1268,10 @@
             <span class="grow"></span><b class="pct">${pctText(f)}</b>${del}</div>
           ${bar(f)}${who(g.item)}${claimCell(g.id, g.item) ? `<div class="claimline">${t('claimCol')}: ${claimCell(g.id, g.item)}</div>` : ''}</div>`;
       }
-      // Výrobok: hlavný cieľ a pod ním medziprodukty a suroviny na zvyšné kusy (ako v pláne).
+      // Výrobok: hlavný cieľ a pod ním medziprodukty a suroviny na všetky kusy cieľa (ako v pláne).
+      // Hotové výrobky v batohoch sa nerátajú, cieľ sa vyrába celý.
       // Hotové medziprodukty tímu sa použijú prednostne, suroviny sa rátajú iba na tie, ktoré treba vyrobiť.
-      const remaining = Math.max(0, g.target - done);
+      const remaining = g.target;
       const entries = [{ id: g.item, qty: remaining }];
       const full = Calc.explode(entries, null).rawNeed;
       const { rawNeed, inter } = Calc.explode(entries, teamHave);
@@ -1256,7 +1289,7 @@
       const fullSum = [...full.values()].reduce((a, n) => a + n, 0);
       const missSum = rawRows.reduce((a, c) => a + c.missing, 0);
       const rawFrac = fullSum ? Math.max(0, 1 - missSum / fullSum) : 1;
-      const f = g.target ? Math.min(1, (Math.min(done, g.target) + remaining * rawFrac) / g.target) : 1;
+      const f = g.target ? rawFrac : 1;
       const hours = rawRows.reduce((a, c) => a + myHoursFor(c.id, c.missing), 0);
       const rows = comps.map(c => `<tr class="${c.missing ? '' : 'ok'}">
           <td><span class="twc-iname">${ico(c.id)}<span>${escapeHtml(nameOf(c.id))}${c.inter ? ` <span class="tag">${t('interOne')}</span>` : ''}</span></span></td>
@@ -1270,10 +1303,10 @@
       const open = !closedGoals.has(g.id);
       return `<details class="goal" data-goal="${escapeHtml(g.id)}" ${open ? 'open' : ''}><summary>
         <div class="goalhead"><b>${escapeHtml(nameOf(g.item))} – ${fmt(g.target)} ${t('pcs')}</b>
-          <span class="muted">${t('doneItems')} ${fmt(done)}${hours ? ` · ${escapeHtml(T[lang].myHours(fmtHours(hours)))}` : ''}</span>
+          <span class="muted">${[done ? escapeHtml(T[lang].inBagsIgnored(fmt(done))) : '', hours ? escapeHtml(T[lang].myHours(fmtHours(hours))) : ''].filter(Boolean).join(' · ')}</span>
           <span class="grow"></span><b class="pct">${pctText(f)}</b>
           ${remaining ? `<button class="link" type="button" data-toplan="${g.item}" data-missing="${remaining}" title="${t('toPlanTitle')}">${t('toPlan')} (${fmt(remaining)})</button>` : ''}${del}</div>
-        ${bar(f)}${who(g.item)}</summary>
+        ${bar(f)}</summary>
         ${remaining ? `<table class="comp"><thead><tr><th>${t('raw')}</th><th class="n">${t('need')}</th>
           <th class="n">${t('teamHas')}</th><th class="n">${t('miss')}</th><th>${t('progress')}</th>${showClaimColumn ? `<th>${t(hasClaims ? 'claimCol' : 'prof')}</th>` : ''}</tr></thead>
           <tbody>${rows}</tbody></table>` : ''}
