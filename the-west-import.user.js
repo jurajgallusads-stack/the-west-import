@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.7.1
+// @version      3.7.2
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -685,6 +685,8 @@
       .twc .twc-goalpick { display: inline-flex; min-width: 0; }
       /* Výber výrobku pre cieľ: herné tlačidlo (ako Obnoviť tím) so šípkou. */
       .twc #twc-goal-picker { cursor: pointer; }
+      .twc #twc-goal-picker[hidden] { display: none; }
+      .twc .twc-goalpick .tw2gui_combobox { cursor: pointer; }
       .twc #twc-goal-picker .textart_title { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
       .twc #twc-goal-name { display: inline-block; min-width: 150px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
       .twc .twc-goal-arrow { font-size: 10px; }
@@ -1279,8 +1281,51 @@
     const bottom = Math.min(window.innerHeight, bar && bar.height ? bar.bottom : Infinity) - margin;
     return { top, bottom };
   }
+  // Výber výrobku vyzerá ako Remeslo a Kategória v Mojom pláne (herný combobox),
+  // ale otvára vlastný zoznam s 10 riadkami a rolovaním. Bez herného comboboxu ostane záložné tlačidlo.
+  const goalAnchor = () => {
+    const face = root.querySelector('.twc-goalpick .tw2gui_combobox');
+    return face && face.offsetParent ? face : $('goal-picker');
+  };
+  function goalFace() {
+    const G = gui();
+    const button = $('goal-picker');
+    const list = $('goal-list');
+    if (!G?.Combobox || !button || !list) return;
+    const combo = new G.Combobox();
+    if (goalItem) {
+      combo.addItem(goalItem, escapeHtml(nameOf(goalItem)));
+      combo.select(goalItem);
+    }
+    try { combo.setWidth(250); } catch { /* staršia hra */ }
+    const el = combo.getMainDiv();
+    const node = el.jquery ? el[0] : el;
+    node.title = goalItem ? nameOf(goalItem) : '';
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', t('product'));
+    node.tabIndex = 0;
+    // Herný zoznam sa neotvorí; namiesto neho vlastný zoznam výrobkov.
+    let wasOpen = false;
+    const swallow = event => { event.stopPropagation(); event.preventDefault(); };
+    node.addEventListener('pointerdown', event => { wasOpen = list.matches(':popover-open'); swallow(event); }, true);
+    node.addEventListener('mousedown', swallow, true);
+    node.addEventListener('mouseup', swallow, true);
+    node.addEventListener('click', event => {
+      swallow(event);
+      if (!wasOpen && goalItem) list.showPopover();
+      wasOpen = false;
+    }, true);
+    node.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+      swallow(event);
+      if (!list.matches(':popover-open')) list.showPopover();
+    });
+    root.querySelector('.twc-goalpick .tw2gui_combobox')?.remove();
+    button.hidden = true;
+    button.after(node);
+  }
   function placeGoalList(list) {
-    const anchor = $('goal-picker').getBoundingClientRect();
+    const anchor = goalAnchor().getBoundingClientRect();
     const { top, bottom } = gameBounds();
     const count = list.querySelectorAll('[data-goalpick]').length;
     const desired = Math.min(GOAL_ROWS, count) * GOAL_ROW_H + 2;
@@ -1458,6 +1503,7 @@
     for (const type of ['wheel', 'mousewheel', 'DOMMouseScroll']) {
       goalList?.addEventListener(type, event => event.stopPropagation(), { passive: true });
     }
+    goalFace();
   }
 
   let tab = GM_getValue('tab', 'plan');
@@ -1696,7 +1742,8 @@
       $('goal-list').querySelectorAll('[data-goalpick]')
         .forEach(o => o.setAttribute('aria-selected', String(o.dataset.goalpick === goalItem)));
       $('goal-list').hidePopover();
-      $('goal-picker').focus({ preventScroll: true });
+      goalFace();
+      goalAnchor()?.focus({ preventScroll: true });
       return;
     }
     const action = target.dataset.team;
