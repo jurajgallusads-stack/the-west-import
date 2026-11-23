@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lenk
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
+// @version      1.1.0
 // @description  Keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina pre Lenka.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -31,13 +31,12 @@
       font: 900 15px/1.25 "Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive;
       text-align: center; text-transform: uppercase; letter-spacing: .5px;
       box-shadow: 4px 4px 0 rgba(0,0,0,.35);
-      transform-origin: 30% 100%; animation: lenk-pop .35s cubic-bezier(.2,1.6,.4,1) both;
+      transform-origin: 85% 100%; animation: lenk-pop .35s cubic-bezier(.2,1.6,.4,1) both;
     }
-    .lenk-bubble::after, .lenk-bubble::before {
-      content: ""; position: absolute; left: 34px; border-style: solid;
-    }
-    .lenk-bubble::before { bottom: -22px; border-width: 22px 14px 0 0; border-color: #111 transparent transparent transparent; }
-    .lenk-bubble::after { bottom: -15px; left: 37px; border-width: 16px 9px 0 0; border-color: #fff transparent transparent transparent; }
+    /* Chvost vpravo dole, mieri šikmo na hlavu obchodníka. */
+    .lenk-bubble::after, .lenk-bubble::before { content: ""; position: absolute; border-style: solid; }
+    .lenk-bubble::before { bottom: -22px; right: 30px; border-width: 22px 0 0 14px; border-color: #111 transparent transparent transparent; }
+    .lenk-bubble::after { bottom: -15px; right: 33px; border-width: 16px 0 0 9px; border-color: #fff transparent transparent transparent; }
     @keyframes lenk-pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   `;
   document.head.appendChild(style);
@@ -49,25 +48,9 @@
     return SHOP_TITLE.test(title);
   };
 
-  // Portrét obchodníka: najväčší obrázok (img alebo pozadie) v ľavej časti okna.
-  function findKeeper(win) {
-    const w = win.getBoundingClientRect();
-    let best = null;
-    let bestArea = 0;
-    for (const el of win.querySelectorAll('img, div, span')) {
-      const isImg = el.tagName === 'IMG';
-      const bg = isImg ? '' : getComputedStyle(el).backgroundImage;
-      if (!isImg && (!bg || bg === 'none')) continue;
-      const src = isImg ? el.src : bg;
-      if (/window|tw2gui|button|scroll|frame|border|item|icon|bg_/i.test(src) && !/trader|shop|keeper|npc|person|char/i.test(src)) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 70 || r.height < 90) continue;
-      if (r.left + r.width / 2 > w.left + w.width * 0.55) continue;
-      const area = r.width * r.height;
-      if (area > bestArea) { best = r; bestArea = area; }
-    }
-    return best;
-  }
+  // Hlava dedka v okne obchodníka (stojí vpravo): pomer k šírke a výške okna.
+  const HEAD_X = 0.89;
+  const HEAD_Y = 0.31;
 
   function placeBubble(win) {
     let bubble = win.querySelector(':scope > .lenk-bubble');
@@ -78,13 +61,13 @@
       win.appendChild(bubble);
     }
     const w = win.getBoundingClientRect();
-    const keeper = findKeeper(win);
+    const width = bubble.offsetWidth;
     const height = bubble.offsetHeight;
-    // Hlava je zhruba v hornej pätine portrétu; chvost bubliny mieri na ňu.
-    const headX = keeper ? keeper.left + keeper.width * 0.5 : w.left + 90;
-    const headY = keeper ? keeper.top + keeper.height * 0.12 : w.top + 70;
-    bubble.style.left = `${Math.round(headX - w.left - 20)}px`;
-    bubble.style.top = `${Math.round(headY - w.top - height - 24)}px`;
+    // Špička chvosta je 33 px od pravého a 19 px pod spodným okrajom bubliny.
+    const headX = w.width * HEAD_X;
+    const headY = w.height * HEAD_Y;
+    bubble.style.left = `${Math.round(headX + 33 - width)}px`;
+    bubble.style.top = `${Math.round(headY - 19 - height)}px`;
   }
 
   let queued = false;
