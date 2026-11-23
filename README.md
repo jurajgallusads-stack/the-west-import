@@ -92,4 +92,4 @@ Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry)
 
 ## lenk (samostatný skript)
 
-[the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Iba kreslí v prehliadači, na herný server nič neposiela.
+[the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Cez menu Tampermonkey (**lenk → Obrázok obchodníka…**) si môžeš vybrať vlastný obrázok, ktorý prekryje dedka; uloží sa iba v tvojom prehliadači. Iba kreslí v prehliadači, na herný server nič neposiela.
