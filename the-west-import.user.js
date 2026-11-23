@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – remeselná kalkulačka
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      3.6.0
+// @version      3.7.0
 // @description  Remeselná kalkulačka priamo v hre: suroviny, batoh, vhodné práce, hodiny a energia. Tím: dobrovoľne zdieľané batohy a spoločné ciele.
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -682,6 +682,18 @@
       .twc #twc-plan-filter { max-width: 75%; }
       .twc button.twc-sort { border: 0; background: none; color: inherit; padding: 0; font: inherit; cursor: pointer; }
       .twc .twc-hidden-label { display: none; }
+      .twc .twc-goalpick { display: inline-flex; flex: 0 1 260px; min-width: 0; }
+      .twc #twc-goal-picker { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex: 1; min-width: 0;
+        min-height: 24px; padding: 2px 6px; color: #3b2a14; background: #f7efd9; border: 1px solid #8b6b3f; border-radius: 3px;
+        font: inherit; cursor: pointer; text-align: left; }
+      .twc #twc-goal-picker:disabled { opacity: .55; cursor: default; }
+      .twc #twc-goal-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .twc #twc-goal-list { position: fixed; inset: auto; margin: 0; padding: 0; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+        overscroll-behavior: contain; background: #f7efd9; border: 1px solid #8b6b3f; border-radius: 3px; box-shadow: 0 3px 8px rgba(0,0,0,.35); }
+      .twc .twc-goalopt { display: block; width: 100%; height: 22px; padding: 0 6px; border: 0; background: none; color: #3b2a14;
+        font: 13px Arial, sans-serif; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+      .twc .twc-goalopt:hover, .twc .twc-goalopt:focus { background: #e4d3a8; outline: none; }
+      .twc .twc-goalopt[aria-selected="true"] { font-weight: bold; background: #ead9ae; }
       .twc #twc-message { margin: 0 4px 4px; }
       .twc .twc-foot { margin: 10px 4px 0; }
       .twc .twc-langs { display: inline-flex; gap: 2px; }
@@ -829,7 +841,7 @@
     const node = el.jquery ? el[0] : el;
     node.dataset.twcSig = sig;
     if (sel.title) node.title = sel.title;
-    const width = sel.id === 'twc-goalitem' ? 250 : 150;
+    const width = 150;
     try { combo.setWidth(width); } catch { /* staršia hra */ }
     node.addEventListener('click', () => setTimeout(() => fitSelectbox(node), 0));
     sel.classList.add('twc-skinned');
@@ -844,10 +856,7 @@
     const list = box && (box.querySelector('ul.tw2gui_selectbox_content') || box.querySelector('ul'));
     if (!list) return;
     list.style.maxHeight = '';
-    const margin = 6;
-    const bar = document.getElementById('ui_bottombar')?.getBoundingClientRect();
-    const top = Math.max(0, document.getElementById('ui_topbar')?.getBoundingClientRect().bottom || 0) + margin;
-    const bottom = Math.min(window.innerHeight, bar && bar.height ? bar.bottom : Infinity) - margin;
+    const { top, bottom } = gameBounds();
     const f = face.getBoundingClientRect();
     const r = box.getBoundingClientRect();
     if (r.top >= top && r.bottom <= bottom) return;
@@ -1245,16 +1254,45 @@
         <tbody>${inter}</tbody></table></details>` : ''}`;
   }
 
-  function itemOptions() {
-    const raws = new Set(Object.keys(DATA.raws));
-    const products = new Set(DATA.products.map(p => String(p.id)));
-    const group = (label, ids) => `<optgroup label="${escapeHtml(label)}">${ids
-      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)))
-      .map(id => `<option value="${id}">${escapeHtml(nameOf(id))}</option>`).join('')}</optgroup>`;
-    const all = Object.keys(DATA.items);
-    return group(t('raws'), all.filter(id => raws.has(id))) +
-      group(t('inters'), all.filter(id => !raws.has(id) && !products.has(id))) +
-      group(t('products'), all.filter(id => products.has(id)));
+  // Cieľ tímu sa vyberá iba z výrobkov; zoznam ukáže najviac 10 riadkov, zvyšok sa roluje.
+  const GOAL_ROWS = 10;
+  const GOAL_ROW_H = 22;
+  let goalItem = '';
+  const goalProducts = () => [...new Set(DATA.products.map(p => String(p.id)))]
+    .filter(id => DATA.items[id])
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  function goalPicker() {
+    const ids = goalProducts();
+    if (!ids.includes(goalItem)) goalItem = ids[0] || '';
+    const options = ids.map(id => `<button type="button" role="option" class="twc-goalopt" data-goalpick="${id}"
+      aria-selected="${id === goalItem}">${escapeHtml(nameOf(id))}</button>`).join('');
+    return `<span class="twc-goalpick">
+      <button id="twc-goal-picker" type="button" popovertarget="twc-goal-list" aria-label="${t('product')}" ${ids.length ? '' : 'disabled'}>
+        <span id="twc-goal-name">${goalItem ? escapeHtml(nameOf(goalItem)) : '–'}</span><span aria-hidden="true">▾</span></button>
+      <div id="twc-goal-list" popover="auto" role="listbox" aria-label="${t('product')}">${options}</div></span>`;
+  }
+  // Hranice herného okna (medzi hornou a spodnou lištou hry).
+  function gameBounds(margin = 6) {
+    const bar = document.getElementById('ui_bottombar')?.getBoundingClientRect();
+    const top = Math.max(0, document.getElementById('ui_topbar')?.getBoundingClientRect().bottom || 0) + margin;
+    const bottom = Math.min(window.innerHeight, bar && bar.height ? bar.bottom : Infinity) - margin;
+    return { top, bottom };
+  }
+  function placeGoalList(list) {
+    const anchor = $('goal-picker').getBoundingClientRect();
+    const { top, bottom } = gameBounds();
+    const count = list.querySelectorAll('[data-goalpick]').length;
+    const desired = Math.min(GOAL_ROWS, count) * GOAL_ROW_H + 2;
+    const below = bottom - anchor.bottom - 2;
+    const above = anchor.top - top - 2;
+    const openBelow = below >= desired || below >= above;
+    const height = Math.max(GOAL_ROW_H * 3, Math.min(desired, openBelow ? below : above));
+    Object.assign(list.style, {
+      top: `${openBelow ? anchor.bottom + 2 : anchor.top - height - 2}px`,
+      left: `${anchor.left}px`,
+      width: `${Math.max(anchor.width, 250)}px`,
+      height: `${height}px`
+    });
   }
 
   const shortDate = ts => new Date(ts).toLocaleString(lang === 'sk' ? 'sk-SK' : 'cs-CZ', {
@@ -1410,10 +1448,15 @@
       <div class="muted">${t('goalsNote')}</div>
       ${goalTable}</div>
       <div class="row goaladd">
-        <select id="twc-goalitem" aria-label="${t('item')}">${itemOptions()}</select>
+        ${goalPicker()}
         <input id="twc-goaltarget" type="number" min="1" step="1" value="100" aria-label="${t('goalTarget')}">
         <button class="btn" type="button" data-team="goal" ${teamBusy ? 'disabled' : ''}>${t('addGoal')}</button>
       </div>`;
+    const goalList = $('goal-list');
+    // Koliesko myši roluje zoznam; herné okno ho nesmie zachytiť.
+    for (const type of ['wheel', 'mousewheel', 'DOMMouseScroll']) {
+      goalList?.addEventListener(type, event => event.stopPropagation(), { passive: true });
+    }
   }
 
   let tab = GM_getValue('tab', 'plan');
@@ -1625,15 +1668,42 @@
     renderPlan();
     renderResults();
   });
+  $('team').addEventListener('beforetoggle', event => {
+    if (event.target.id === 'twc-goal-list' && event.newState === 'open') placeGoalList(event.target);
+  }, true);
+  $('team').addEventListener('toggle', event => {
+    if (event.target.id !== 'twc-goal-list' || event.newState !== 'open') return;
+    const current = event.target.querySelector('[aria-selected="true"]');
+    if (current) {
+      event.target.scrollTop = current.offsetTop - (event.target.clientHeight - current.offsetHeight) / 2;
+      current.focus({ preventScroll: true });
+    }
+  }, true);
+  $('team').addEventListener('keydown', event => {
+    const opt = event.target.closest?.('[data-goalpick]');
+    if (!opt || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    (event.key === 'ArrowDown' ? opt.nextElementSibling : opt.previousElementSibling)?.focus();
+  });
   $('team').addEventListener('click', event => {
     const target = event.target.closest('button');
     if (!target) return;
+    if (target.dataset.goalpick) {
+      goalItem = target.dataset.goalpick;
+      $('goal-name').textContent = nameOf(goalItem);
+      $('goal-list').querySelectorAll('[data-goalpick]')
+        .forEach(o => o.setAttribute('aria-selected', String(o.dataset.goalpick === goalItem)));
+      $('goal-list').hidePopover();
+      $('goal-picker').focus({ preventScroll: true });
+      return;
+    }
     const action = target.dataset.team;
     const ch = character();
     if (action === 'connect') connectTeam();
     else if (action === 'sync') syncTeam();
     else if (action === 'goal' && ch) {
-      const item = Number($('goalitem').value);
+      const item = Number(goalItem);
       const target_ = Math.floor(Number($('goaltarget').value));
       if (item && target_ >= 1) teamCall({ action: 'goal-add', goal: { item, target: target_, by: ch.name } }, t('goalAdded'));
     } else if (target.dataset.goaldel) {
