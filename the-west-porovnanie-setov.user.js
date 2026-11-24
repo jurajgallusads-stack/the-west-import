@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.2.1
+// @version      1.3.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -236,7 +236,7 @@
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
-      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy (rebríček na kombinovanie)</option></select>
+      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy</option><option value="mix" ${st.mode === 'mix' ? 'selected' : ''}>Ponuka: najlepšie výmeny (kusy aj celé sety)</option></select>
       <select id="twps-set">${setOptions(st.sort, st.L)}</select>
       <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>Zoradiť: ${n}</option>`).join('')}</select>
       <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
@@ -250,7 +250,7 @@
   <div class="lc"><b id="twps-lt">Rebríček jednotlivých kusov</b>
     Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select>
     Kandidáti <select id="twps-lv">${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
-    <span style="color:#7a6a50">Len kusy, ktoré B zlepšia. „Zmena v B“ = o koľko sa B zlepší, keď kus vložíš do jeho slotu (vrátane rozbitia alebo doplnenia setu).</span></div>
+    <span style="color:#7a6a50">Len to, čo B zlepší. „Zmena v B“ = o koľko sa B zlepší, keď kus alebo celý set vložíš na jeho miesto (vrátane rozbitia alebo doplnenia setov).</span></div>
   <div id="twps-lb"></div>
 </div>
 <table class="res" id="twps-res"></table>
@@ -307,35 +307,63 @@
 
     let lt; const scheduleList = () => { clearTimeout(lt); lt = setTimeout(renderList, 60); };
     const renderList = () => {
-      const box = $('list'); if (st.mode !== 'items') { box.style.display = 'none'; return; }
-      box.style.display = 'block';
+      const box = $('list'); box.style.display = 'block';
       const key = st.sort, body = $('lb');
-      if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček jednotlivých kusov'; body.innerHTML = '<i>V „Zoradiť“ vyber bonus (napr. Najviac zberu produktov, Najviac rýchlosti, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
-      $('lt').textContent = 'Rebríček kusov – ' + SORTNAME[key];
+      const what = st.mode === 'sets' ? 'celých setov' : st.mode === 'items' ? 'jednotlivých kusov' : 'kusov aj setov';
+      if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček ' + what; body.innerHTML = '<i>V „Zoradiť“ vyber bonus (napr. Najviac zberu produktov, Najviac rýchlosti, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
+      $('lt').textContent = 'Rebríček ' + what + ' – ' + SORTNAME[key];
       const L = st.L, unit = key === 'job' ? '' : ' %', f = norm(st.filter);
       const base = compute(st.selB, L)[key] || 0;
+      const delta = sel => Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10;
+      const lvlFor = b => { const it = ItemManager.get(b * 1000); return it && it.upgradeable ? st.candLvl : 0; };
       const cands = [];
-      for (const slot of (st.slotF === 'all' ? SL : [st.slotF])) for (const i of CAT.bySlot[slot]) {
+      // jednotlivé kusy
+      if (st.mode !== 'sets') for (const slot of (st.slotF === 'all' ? SL : [st.slotF])) for (const i of CAT.bySlot[slot]) {
         if (f && !(norm(i.name).includes(f) || (i.set && CAT.setInfo[i.set] && norm(CAT.setInfo[i.set].name).includes(f)))) continue;
         const own = itemValue(i.base, key, L); const sv = i.set ? setValue(i.set, key, L) : 0;
         if (own <= 0 && sv <= 0) continue;
         const cur = st.selB[slot]; if (cur && cur.base === i.base) continue;
-        const sel = Object.assign({}, st.selB); sel[slot] = { base: i.base, lvl: i.up ? st.candLvl : 0 };
-        const d = Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10;
-        if (d > 0) cands.push({ i, slot, own, d });
+        const sel = Object.assign({}, st.selB); sel[slot] = { base: i.base, lvl: lvlFor(i.base) };
+        const d = delta(sel);
+        if (d > 0) cands.push({ kind: 'item', i, slot, own, d });
       }
-      cands.sort((a, b) => b.d - a.d || b.own - a.own || a.i.name.localeCompare(b.i.name));
+      // celé sety (všetky kusy setu naraz, pri viacerých zbraniach do jedného slotu sa vyberie najlepšia)
+      if (st.mode !== 'items') for (const si of Object.values(CAT.setInfo)) {
+        const opts = {};
+        for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!it || !SL.includes(it.type)) continue; (opts[it.type] = opts[it.type] || []).push(it.item_base_id || Math.floor(it.item_id / 1000)); }
+        const slots = Object.keys(opts); if (slots.length < 2) continue;
+        if (st.slotF !== 'all' && !opts[st.slotF]) continue;
+        if (f && !(norm(si.name).includes(f) || slots.some(sl => opts[sl].some(b => norm((ItemManager.get(b * 1000) || {}).name || '').includes(f))))) continue;
+        if (setValue(si.key, key, L) <= 0 && !slots.some(sl => opts[sl].some(b => itemValue(b, key, L) > 0))) continue;
+        let combos = [{}];
+        for (const sl of slots) { const nx = []; for (const c of combos) for (const b of opts[sl]) nx.push(Object.assign({}, c, { [sl]: b })); combos = nx.slice(0, 16); }
+        let best = null;
+        for (const c of combos) {
+          if (slots.every(sl => st.selB[sl] && st.selB[sl].base === c[sl])) continue;
+          const sel = Object.assign({}, st.selB); for (const sl of slots) sel[sl] = { base: c[sl], lvl: lvlFor(c[sl]) };
+          const d = delta(sel); if (!best || d > best.d) best = { c, d };
+        }
+        if (best && best.d > 0) cands.push({ kind: 'set', si, combo: best.c, own: setValue(si.key, key, L), d: best.d });
+      }
+      cands.sort((a, b) => b.d - a.d || b.own - a.own);
       const show = cands.slice(0, st.limit);
-      let h = `<table><tr><th>#</th><th>Slot</th><th style="text-align:left">Predmet</th><th>Samotný kus</th><th>Zmena v B</th><th></th></tr>`;
+      let h = `<table><tr><th>#</th><th>Slot</th><th style="text-align:left">Predmet / set</th><th>Samotný kus / set</th><th>Zmena v B</th><th></th></tr>`;
       show.forEach((c, n) => {
+        if (c.kind === 'set') {
+          const parts = Object.entries(c.combo).map(([sl, b]) => SN[sl] + ': ' + esc(((ItemManager.get(b * 1000) || {}).name || '').trim())).join(', ');
+          h += `<tr><td class="n">${n + 1}</td><td class="n"><b>Set</b> (${Object.keys(c.combo).length} ks)</td><td><b>${esc(c.si.name)}</b><br><small style="color:#7a6a50">${parts}</small></td>` +
+            `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
+            `<td class="n"><button class="put" data-combo="${esc(JSON.stringify(c.combo))}">➜ do B</button></td></tr>`;
+          return;
+        }
         const si = c.i.set && CAT.setInfo[c.i.set];
         const warn = (c.i.cls && c.i.cls !== Character.charClass ? ' ⚠trieda' : '') + (c.i.sex && c.i.sex !== Character.charSex ? ' ⚠pohlavie' : '') + (c.i.lvl > L ? ' (lvl ' + c.i.lvl + ')' : '');
         h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</td>` +
-          `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n ${c.d > 0 ? 'plus' : c.d < 0 ? 'minus' : 'zero'}">${c.d > 0 ? '+' : ''}${c.d}${unit}</td>` +
+          `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
           `<td class="n"><button class="put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
       });
       h += '</table>';
-      if (!cands.length) h = '<i>Žiadny kus by B v tomto bonuse nezlepšil.</i>';
+      if (!cands.length) h = '<i>Nič by B v tomto bonuse nezlepšilo.</i>';
       else if (cands.length > st.limit) h += `<div style="margin-top:6px"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
       body.innerHTML = h;
       const more = $('more'); if (more) more.onclick = () => { st.limit += 40; renderList(); };
@@ -362,8 +390,8 @@
     $('lv').onchange = e => { st.candLvl = +e.target.value; renderList(); };
     $('lb').onclick = e => {
       const b = e.target.closest && e.target.closest('.put'); if (!b) return;
-      const slot = b.dataset.slot, base = +b.dataset.base; const it = ItemManager.get(base * 1000);
-      st.selB[slot] = { base, lvl: it && it.upgradeable ? st.candLvl : 0 };
+      const put = (slot, base) => { const it = ItemManager.get(base * 1000); st.selB[slot] = { base, lvl: it && it.upgradeable ? st.candLvl : 0 }; };
+      if (b.dataset.combo) { const c = JSON.parse(b.dataset.combo); for (const sl in c) put(sl, +c[sl]); } else put(b.dataset.slot, +b.dataset.base);
       renderB(); calc(); save();
     };
 
