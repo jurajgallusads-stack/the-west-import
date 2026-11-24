@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.4.0
+// @version      1.5.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -269,9 +269,13 @@
   Level <input type="number" id="twps-L" min="1" max="250" value="${st.L}" style="width:52px">
   <button class="x" id="twps-x">✕</button></div>
 <div class="cols">
-  <div class="col"><h3>A – moje oblečenie z hry</h3>
-    <div class="tools" style="grid-template-columns:1fr"><select id="twps-A">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
-    <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><input type="text" id="twps-An-${s}" readonly><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
+  <div class="col"><h3>A – moje oblečenie (dá sa upraviť)</h3>
+    <div class="tools" style="grid-template-columns:1fr auto">
+      <select id="twps-A" title="Východiskové oblečenie">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+      <button class="btn" id="twps-Areset" title="Vrátiť A na vybrané oblečenie zo šatníka">↺</button>
+      <select id="twps-Aset" style="grid-column:1/3" title="Prepíše sloty v A kusmi zvoleného setu (aj keď ho nemáš)">${setOptions(st.sort, st.L)}</select>
+    </div>
+    <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
@@ -306,15 +310,20 @@
 
     const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort, mode: st.mode });
 
-    const renderA = () => {
-      st.selA = JSON.parse(JSON.stringify(wardrobe[st.A] || {}));
+    const paintSlotA = s => {
+      const p = st.selA[s]; const it = p && ItemManager.get(p.base * 1000);
+      $('Al-' + s).innerHTML = lvlSelect('twps-Alv-' + s, p ? p.lvl : 0, !!(it && it.upgradeable));
+      $('Alv-' + s).onchange = e => { if (st.selA[s]) st.selA[s].lvl = +e.target.value; calc(); };
+    };
+    const paintA = () => {
       for (const s of SL) {
-        const p = st.selA[s]; const it = p && ItemManager.get(p.base * 1000);
-        $('An-' + s).value = it ? it.name : '';
-        $('Al-' + s).innerHTML = lvlSelect('twps-Alv-' + s, p ? p.lvl : 0, !!(it && it.upgradeable));
-        $('Alv-' + s).onchange = e => { if (st.selA[s]) st.selA[s].lvl = +e.target.value; calc(); };
+        const p = st.selA[s];
+        $('An-' + s).innerHTML = itemOptions(s, 'cat', '', p ? p.base : null, st.L);
+        $('An-' + s).onchange = e => { const b = +e.target.value; if (b) st.selA[s] = { base: b, lvl: 0 }; else delete st.selA[s]; paintSlotA(s); calc(); };
+        paintSlotA(s);
       }
     };
+    const renderA = () => { st.selA = JSON.parse(JSON.stringify(wardrobe[st.A] || {})); paintA(); };
     const renderB = () => {
       for (const s of SL) {
         const p = st.selB[s];
@@ -412,7 +421,7 @@
     };
 
     $('A').onchange = e => { st.A = e.target.value; renderA(); calc(); save(); };
-    $('sort').onchange = e => { st.sort = e.target.value; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L); renderB(); renderList(); save(); };
+    $('sort').onchange = e => { st.sort = e.target.value; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L); $('Aset').innerHTML = setOptions(st.sort, st.L); renderB(); renderList(); save(); };
     let ft; $('f').oninput = e => { clearTimeout(ft); ft = setTimeout(() => { st.filter = e.target.value; st.limit = 40; renderB(); renderList(); }, 250); };
     $('set').onchange = e => {
       const si = CAT.setInfo[e.target.value]; if (!si) return;
@@ -425,8 +434,16 @@
     $('all').onchange = e => { if (e.target.value === '') return; const v = +e.target.value;
       for (const s in st.selB) { const it = ItemManager.get(st.selB[s].base * 1000); if (it && it.upgradeable) st.selB[s].lvl = v; }
       e.target.value = ''; renderB(); calc(); save(); };
-    $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); renderB(); calc(); };
+    $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); $('Aset').innerHTML = setOptions(st.sort, st.L); paintA(); renderB(); calc(); };
     $('x').onclick = () => w.remove();
+    $('Areset').onclick = () => { renderA(); calc(); };
+    $('Aset').onchange = e => {
+      const si = CAT.setInfo[e.target.value]; if (!si) return;
+      const done = {};
+      for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!it || !SL.includes(it.type) || done[it.type]) continue;
+        done[it.type] = 1; st.selA[it.type] = { base: it.item_base_id || Math.floor(it.item_id / 1000), lvl: 0 }; }
+      e.target.value = ''; paintA(); calc();
+    };
     $('Bd').onclick = e => {
       const c = e.target.closest && e.target.closest('.cell'); if (!c) return;
       const sl = c.dataset.slot; const row = $('Br-' + sl); const sel = $('B-' + sl);
