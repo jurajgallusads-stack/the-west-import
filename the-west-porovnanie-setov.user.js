@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
+// @version      1.1.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -72,6 +72,34 @@
     const ck = base + '|' + L; let v = single[ck];
     if (!v) { const sel = {}; const it = ItemManager.get(base * 1000); sel[it.type] = { base, lvl: 0 }; v = single[ck] = compute(sel, L); }
     return v[key] || 0;
+  }
+
+  // hodnota celého setu (všetky kusy, ktoré sa zmestia do slotov), na zoradenie setov
+  const setCache = {};
+  function setValue(setKey, key, L) {
+    const ck = setKey + '|' + L; let v = setCache[ck];
+    if (!v) {
+      const si = CAT.setInfo[setKey]; const sel = {};
+      for (const id of (si ? si.items : [])) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (it && SL.includes(it.type) && !sel[it.type]) sel[it.type] = { base: it.item_base_id || Math.floor(it.item_id / 1000), lvl: 0 }; }
+      v = setCache[ck] = compute(sel, L);
+    }
+    return v[key] || 0;
+  }
+  const SORTNAME = { experience: 'XP', speed: 'rýchlosť', animal: 'rýchlosť zvieraťa', drop: 'zber produktov', luck: 'šťastie', dollar: 'peniaze', job: 'pracovné body' };
+  function setOptions(sort, L) {
+    let h = '<option value="">Načítať celý set…</option>';
+    const sets = Object.values(CAT.setInfo);
+    if (SORTNAME[sort]) {
+      const unit = sort === 'job' ? '' : ' %';
+      const sc = sets.map(s => [s, setValue(s.key, sort, L)]);
+      const pos = sc.filter(p => p[1] > 0).sort((a, b) => b[1] - a[1]);
+      h += `<optgroup label="Najlepšie sety – ${SORTNAME[sort]}">` + pos.map(([s, v]) => `<option value="${esc(s.key)}">[+${v}${unit}] ${esc(s.name)} (${s.items.length} ks)</option>`).join('') + '</optgroup>';
+      const zero = sc.filter(p => p[1] <= 0).map(p => p[0]).sort((a, b) => a.name.localeCompare(b.name));
+      h += `<optgroup label="Bez bonusu – ${SORTNAME[sort]}">` + zero.map(s => `<option value="${esc(s.key)}">${esc(s.name)} (${s.items.length} ks)</option>`).join('') + '</optgroup>';
+    } else {
+      for (const g of CAT.groups) h += `<optgroup label="${esc(g)}">` + sets.filter(s => s.group === g).sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${esc(s.key)}">${esc(s.name)} (${s.items.length} ks)</option>`).join('') + '</optgroup>';
+    }
+    return h;
   }
 
   // ---------- katalóg predmetov ----------
@@ -168,8 +196,14 @@
       }
     } else {
       const unit = sort === 'job' ? '' : ' %';
-      const scored = list.map(i => [i, itemValue(i.base, sort, L)]).filter(p => p[1] > 0 || p[0].base === selBase).sort((a, b) => b[1] - a[1]);
-      scored.forEach(([i, v]) => h += label(i, '  [+' + v + unit + ']'));
+      const scored = list.map(i => [i, itemValue(i.base, sort, L)]);
+      const pos = scored.filter(p => p[1] > 0).sort((a, b) => b[1] - a[1] || a[0].name.localeCompare(b[0].name));
+      const zero = scored.filter(p => p[1] <= 0).sort((a, b) => a[0].name.localeCompare(b[0].name));
+      h += `<optgroup label="Najlepšie – ${SORTNAME[sort]} (samotný kus)">`;
+      pos.forEach(([i, v]) => h += label(i, '  [+' + v + unit + ']'));
+      h += `</optgroup><optgroup label="Bez bonusu ${SORTNAME[sort]} (môže pridať set bonus)">`;
+      zero.forEach(([i]) => h += label(i, i.set && CAT.setInfo[i.set] ? ' — ' + CAT.setInfo[i.set].name : ''));
+      h += '</optgroup>';
     }
     return h;
   }
@@ -194,7 +228,7 @@
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
-      <select id="twps-set"><option value="">Načítať celý set…</option>${CAT.groups.map(g => `<optgroup label="${esc(g)}">${Object.values(CAT.setInfo).filter(s => s.group === g).sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${esc(s.key)}">${esc(s.name)} (${s.items.length})</option>`).join('')}</optgroup>`).join('')}</select>
+      <select id="twps-set">${setOptions(st.sort, st.L)}</select>
       <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>Zoradiť: ${n}</option>`).join('')}</select>
       <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
       <div style="display:flex;gap:4px"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť</button>
@@ -255,7 +289,7 @@
     };
 
     $('A').onchange = e => { st.A = e.target.value; renderA(); calc(); save(); };
-    $('sort').onchange = e => { st.sort = e.target.value; renderB(); save(); };
+    $('sort').onchange = e => { st.sort = e.target.value; $('set').innerHTML = setOptions(st.sort, st.L); renderB(); save(); };
     let ft; $('f').oninput = e => { clearTimeout(ft); ft = setTimeout(() => { st.filter = e.target.value; renderB(); }, 250); };
     $('set').onchange = e => {
       const si = CAT.setInfo[e.target.value]; if (!si) return;
@@ -268,7 +302,7 @@
     $('all').onchange = e => { if (e.target.value === '') return; const v = +e.target.value;
       for (const s in st.selB) { const it = ItemManager.get(st.selB[s].base * 1000); if (it && it.upgradeable) st.selB[s].lvl = v; }
       e.target.value = ''; renderB(); calc(); save(); };
-    $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); renderB(); calc(); };
+    $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); renderB(); calc(); };
     $('x').onclick = () => w.remove();
 
     renderA(); renderB(); calc();
