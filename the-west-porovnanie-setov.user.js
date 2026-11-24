@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.2.0
+// @version      1.2.1
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -250,7 +250,7 @@
   <div class="lc"><b id="twps-lt">Rebríček jednotlivých kusov</b>
     Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select>
     Kandidáti <select id="twps-lv">${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
-    <span style="color:#7a6a50">„Zmena v B“ = o koľko sa zmení B, keď kus vložíš do jeho slotu (vrátane rozbitia alebo doplnenia setu).</span></div>
+    <span style="color:#7a6a50">Len kusy, ktoré B zlepšia. „Zmena v B“ = o koľko sa B zlepší, keď kus vložíš do jeho slotu (vrátane rozbitia alebo doplnenia setu).</span></div>
   <div id="twps-lb"></div>
 </div>
 <table class="res" id="twps-res"></table>
@@ -321,7 +321,8 @@
         if (own <= 0 && sv <= 0) continue;
         const cur = st.selB[slot]; if (cur && cur.base === i.base) continue;
         const sel = Object.assign({}, st.selB); sel[slot] = { base: i.base, lvl: i.up ? st.candLvl : 0 };
-        cands.push({ i, slot, own, d: Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10 });
+        const d = Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10;
+        if (d > 0) cands.push({ i, slot, own, d });
       }
       cands.sort((a, b) => b.d - a.d || b.own - a.own || a.i.name.localeCompare(b.i.name));
       const show = cands.slice(0, st.limit);
@@ -334,7 +335,7 @@
           `<td class="n"><button class="put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
       });
       h += '</table>';
-      if (!cands.length) h = '<i>Nič nenájdené.</i>';
+      if (!cands.length) h = '<i>Žiadny kus by B v tomto bonuse nezlepšil.</i>';
       else if (cands.length > st.limit) h += `<div style="margin-top:6px"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
       body.innerHTML = h;
       const more = $('more'); if (more) more.onclick = () => { st.limit += 40; renderList(); };
