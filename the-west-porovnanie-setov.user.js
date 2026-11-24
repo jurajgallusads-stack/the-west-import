@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.3.0
+// @version      1.3.1
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -236,7 +236,7 @@
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
-      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy</option><option value="mix" ${st.mode === 'mix' ? 'selected' : ''}>Ponuka: najlepšie výmeny (kusy aj celé sety)</option></select>
+      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy a páry (kôň + sedlo, zbrane)</option><option value="mix" ${st.mode === 'mix' ? 'selected' : ''}>Ponuka: najlepšie výmeny (kusy aj celé sety)</option></select>
       <select id="twps-set">${setOptions(st.sort, st.L)}</select>
       <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>Zoradiť: ${n}</option>`).join('')}</select>
       <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
@@ -309,7 +309,7 @@
     const renderList = () => {
       const box = $('list'); box.style.display = 'block';
       const key = st.sort, body = $('lb');
-      const what = st.mode === 'sets' ? 'celých setov' : st.mode === 'items' ? 'jednotlivých kusov' : 'kusov aj setov';
+      const what = st.mode === 'sets' ? 'celých setov' : st.mode === 'items' ? 'kusov a párov' : 'kusov aj setov';
       if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček ' + what; body.innerHTML = '<i>V „Zoradiť“ vyber bonus (napr. Najviac zberu produktov, Najviac rýchlosti, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
       $('lt').textContent = 'Rebríček ' + what + ' – ' + SORTNAME[key];
       const L = st.L, unit = key === 'job' ? '' : ' %', f = norm(st.filter);
@@ -328,10 +328,11 @@
         if (d > 0) cands.push({ kind: 'item', i, slot, own, d });
       }
       // celé sety (všetky kusy setu naraz, pri viacerých zbraniach do jedného slotu sa vyberie najlepšia)
-      if (st.mode !== 'items') for (const si of Object.values(CAT.setInfo)) {
+      for (const si of Object.values(CAT.setInfo)) {
         const opts = {};
         for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!it || !SL.includes(it.type)) continue; (opts[it.type] = opts[it.type] || []).push(it.item_base_id || Math.floor(it.item_id / 1000)); }
         const slots = Object.keys(opts); if (slots.length < 2) continue;
+        if (st.mode === 'items' && slots.length > 3) continue; // v režime kusov len páry a malé sety (kôň + sedlo, zbrane)
         if (st.slotF !== 'all' && !opts[st.slotF]) continue;
         if (f && !(norm(si.name).includes(f) || slots.some(sl => opts[sl].some(b => norm((ItemManager.get(b * 1000) || {}).name || '').includes(f))))) continue;
         if (setValue(si.key, key, L) <= 0 && !slots.some(sl => opts[sl].some(b => itemValue(b, key, L) > 0))) continue;
