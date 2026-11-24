@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.7.0
+// @version      1.8.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -284,7 +284,9 @@
       <select id="twps-A" title="Východiskové oblečenie">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
       <button class="btn" id="twps-Areset" title="Vrátiť A na vybrané oblečenie zo šatníka">↺</button>
       <select id="twps-Aset" style="grid-column:1/3" title="Prepíše sloty v A kusmi zvoleného setu (aj keď ho nemáš)">${setOptions(st.sort, st.L)}</select>
+      <button class="btn" id="twps-Aopt" style="grid-column:1/3;background:#2f6b2f;font-weight:bold;padding:6px" title="Od súčasného A opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa bonus zvolený v „Zoradiť“ (v B) zlepšuje">⚡ Nájdi najlepšiu kombináciu pre A</button>
     </div>
+    <div id="twps-Aoptlog" style="font-size:11px;color:#2b4a1a;margin:0 0 6px"></div>
     <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
   </div>
   <div class="col"><h3>B – na výber</h3>
@@ -365,11 +367,11 @@
     };
     // ---------- optimalizácia: opakovane najlepšia výmena (kus alebo celý set), kým sa bonus zlepšuje ----------
     let optRunning = false;
-    const optimize = async () => {
+    const optimize = async (side = 'B') => {
       if (optRunning) return;
-      const key = st.sort, log = $('optlog');
-      if (!SORTNAME[key]) { log.innerHTML = '<b style="color:#b00">V „Zoradiť“ najprv vyber bonus (napr. Najviac rýchlosti, Najviac XP).</b>'; return; }
-      optRunning = true; $('opt').disabled = true;
+      const key = st.sort, log = $(side === 'A' ? 'Aoptlog' : 'optlog'), btn = $(side === 'A' ? 'Aopt' : 'opt'), S = side === 'A' ? st.selA : S;
+      if (!SORTNAME[key]) { log.innerHTML = '<b style="color:#b00">V „Zoradiť“ najprv vyber bonus (v časti B, napr. Najviac rýchlosti, Najviac XP).</b>'; return; }
+      optRunning = true; btn.disabled = true;
       const L = st.L, unit = NOUNIT[key] ? '' : ' %';
       const okIt = it => it && !(it.level > L) && !(it.characterClass && it.characterClass !== Character.charClass) && !(it.characterSex && it.characterSex !== Character.charSex);
       const lvlOf = b => { const it = ItemManager.get(b * 1000); return it && it.upgradeable ? st.candLvl : 0; };
@@ -390,33 +392,34 @@
         for (const sl of slots) { const nx = []; for (const c of combos) for (const b of opts[sl]) nx.push(Object.assign({}, c, { [sl]: b })); combos = nx.slice(0, 16); }
         for (const c of combos) setCombos.push([si.name, c]);
       }
-      const start = compute(st.selB, L)[key] || 0, steps = [];
+      const start = compute(S, L)[key] || 0, steps = [];
       for (let n = 0; n < 40; n++) {
-        const base = compute(st.selB, L)[key] || 0; let best = null;
+        const base = compute(S, L)[key] || 0; let best = null;
         for (const [sl, b] of singles) {
-          if (st.selB[sl] && st.selB[sl].base === b) continue;
-          const sel = Object.assign({}, st.selB); sel[sl] = { base: b, lvl: lvlOf(b) };
+          if (S[sl] && S[sl].base === b) continue;
+          const sel = Object.assign({}, S); sel[sl] = { base: b, lvl: lvlOf(b) };
           const d = (compute(sel, L)[key] || 0) - base;
           if (d > 0.05 && (!best || d > best.d + 1e-9)) best = { d, ch: { [sl]: b }, label: SN[sl] + ': ' + nameOf(b) };
         }
         for (const [nm, c] of setCombos) {
-          const sls = Object.keys(c); if (sls.every(sl => st.selB[sl] && st.selB[sl].base === c[sl])) continue;
-          const sel = Object.assign({}, st.selB); for (const sl of sls) sel[sl] = { base: c[sl], lvl: lvlOf(c[sl]) };
+          const sls = Object.keys(c); if (sls.every(sl => S[sl] && S[sl].base === c[sl])) continue;
+          const sel = Object.assign({}, S); for (const sl of sls) sel[sl] = { base: c[sl], lvl: lvlOf(c[sl]) };
           const d = (compute(sel, L)[key] || 0) - base;
           if (d > 0.05 && (!best || d > best.d + 1e-9)) best = { d, ch: c, label: 'Set ' + nm + ' (' + sls.length + ' ks)' };
         }
         if (!best) break;
-        for (const sl in best.ch) st.selB[sl] = { base: best.ch[sl], lvl: lvlOf(best.ch[sl]) };
+        for (const sl in best.ch) S[sl] = { base: best.ch[sl], lvl: lvlOf(best.ch[sl]) };
         steps.push(best.label + ' <b>+' + Math.round(best.d * 10) / 10 + unit + '</b>');
         log.innerHTML = 'Hľadám… krok ' + (n + 1) + ': ' + esc(best.label);
         await new Promise(r => setTimeout(r, 0));
       }
-      const end = compute(st.selB, L)[key] || 0;
-      renderB(); calc(); save();
+      const end = compute(S, L)[key] || 0;
+      if (side === 'A') paintA(); else renderB();
+      calc(); save();
       log.innerHTML = steps.length
         ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Kroky: ` + steps.map((t, i) => (i + 1) + ') ' + t).join(', ') + '. <i>Hľadá sa postupnými výmenami, takže to nemusí byť úplne najlepšia možná zostava, ale mala by byť blízko. Vynecháva kusy pre iný level, triedu či pohlavie.</i>'
-        : `<b>B sa už pre ${SORTNAME[key]} nedá zlepšiť jednou výmenou kusu ani setu.</b>`;
-      optRunning = false; $('opt').disabled = false;
+        : `<b>${side} sa už pre ${SORTNAME[key]} nedá zlepšiť jednou výmenou kusu ani setu.</b>`;
+      optRunning = false; btn.disabled = false;
     };
     const fillB = () => { for (const s of SL) $('B-' + s).innerHTML = optionsB(s); };
     let bt; const scheduleB = () => { clearTimeout(bt); bt = setTimeout(fillB, 80); };
@@ -533,7 +536,8 @@
     $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); $('Aset').innerHTML = setOptions(st.sort, st.L); paintA(); renderB(); calc(); };
     $('x').onclick = () => w.remove();
     $('Areset').onclick = () => { renderA(); calc(); };
-    $('opt').onclick = () => { optimize(); };
+    $('opt').onclick = () => { optimize('B'); };
+    $('Aopt').onclick = () => { optimize('A'); };
     $('Aset').onchange = e => {
       const si = CAT.setInfo[e.target.value]; if (!si) return;
       const done = {};
