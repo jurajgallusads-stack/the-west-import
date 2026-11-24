@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.3.1
+// @version      1.4.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -32,6 +32,30 @@
 
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // obrázok predmetu (s úrovňou vylepšenia) + herná bublina s bonusmi po prejdení myšou
+  const icon = (base, lvl, cls) => {
+    if (!base) return `<span class="ic ${cls || ''} empty"></span>`;
+    const it = ItemManager.get(base * 1000 + (lvl || 0)) || ItemManager.get(base * 1000);
+    if (!it || !it.image) return `<span class="ic ${cls || ''} empty"></span>`;
+    return `<img class="ic ${cls || ''}" src="${esc(it.image)}" data-iid="${it.item_id}" alt="">`;
+  };
+  const dollHtml = side => `<div class="doll${side === 'B' ? ' dollB' : ''}" id="twps-${side}d">` + SL.map(sl => `<div class="cell" style="grid-area:${sl}" id="twps-${side}c-${sl}" data-slot="${sl}"></div>`).join('') + '</div>';
+  const renderDoll = (side, sel) => {
+    for (const sl of SL) {
+      const c = document.getElementById('twps-' + side + 'c-' + sl); if (!c) continue;
+      const p = sel[sl]; const it = p && (ItemManager.get(p.base * 1000 + (p.lvl || 0)) || ItemManager.get(p.base * 1000));
+      c.innerHTML = it ? `<img src="${esc(it.wear_image || it.image)}" data-iid="${it.item_id}" alt="">${p.lvl ? `<span class="bd">▲${p.lvl}</span>` : ''}` : `<span class="emp">${SN[sl]}</span>`;
+    }
+    bindPops(document.getElementById('twps-' + side + 'd'));
+  };
+  const bindPops = root => {
+    if (!root) return;
+    root.querySelectorAll('img[data-iid]').forEach(img => {
+      if (img._twps) return; img._twps = 1;
+      const it = ItemManager.get(+img.dataset.iid); if (!it) return;
+      try { new ItemPopup(it, {}).bindTo($(img)); } catch (e) { img.title = it.name; }
+    });
+  };
   const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
 
@@ -146,7 +170,7 @@
   }
 
   const CSS = `
-#twps{position:fixed;z-index:100000;top:30px;left:50%;transform:translateX(-50%);width:1000px;max-width:98vw;max-height:94vh;overflow:auto;background:#f3e6c8;color:#2b1d0e;border:3px solid #5c3a1a;border-radius:10px;font:12px Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#twps{position:fixed;z-index:100000;top:30px;left:50%;transform:translateX(-50%);width:1200px;max-width:98vw;max-height:94vh;overflow:auto;background:#f3e6c8;color:#2b1d0e;border:3px solid #5c3a1a;border-radius:10px;font:12px Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 #twps .hd{display:flex;align-items:center;gap:10px;background:#5c3a1a;color:#fff;padding:8px 12px;cursor:move;position:sticky;top:0;z-index:2}
 #twps .hd b{font-size:15px;flex:1}
 #twps .hd input,#twps .hd select{font-size:12px}
@@ -154,7 +178,22 @@
 #twps .cols{display:flex;gap:10px;padding:10px}
 #twps .col{flex:1;background:#fbf3df;border:1px solid #cbb48a;border-radius:8px;padding:8px;min-width:0}
 #twps .col h3{margin:0 0 6px;font-size:13px;color:#5c3a1a}
-#twps .row{display:grid;grid-template-columns:92px 1fr 46px;gap:4px;align-items:center;margin:3px 0}
+#twps .row{display:grid;grid-template-columns:86px 1fr 46px;gap:4px;align-items:center;margin:3px 0}
+#twps .colin{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+#twps .slots{flex:1;min-width:230px}
+#twps .doll{flex:0 0 auto;display:grid;grid-template-columns:74px 86px 74px;grid-template-rows:66px 120px 74px 66px;gap:5px;grid-template-areas:"neck head ." "right_arm body left_arm" "animal pants belt" "yield pants foot";background:#4a3420;padding:7px;border-radius:8px;box-shadow:inset 0 0 8px rgba(0,0,0,.6)}
+#twps .cell{position:relative;background:radial-gradient(#d9c7a0,#b79c6c);border:2px solid #7a5a32;border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#twps .cell img{max-width:100%;max-height:100%;object-fit:contain}
+#twps .cell .emp{color:#6e5634;font-size:10px;text-align:center;padding:2px}
+#twps .cell .bd{position:absolute;top:2px;left:2px;background:#2b1d0e;color:#ffd24a;font:bold 10px Arial;padding:1px 4px;border-radius:3px;pointer-events:none}
+#twps .dollB .cell{cursor:pointer}
+#twps .dollB .cell:hover{border-color:#ffd24a}
+#twps .row.hl{background:#ffe9a8;border-radius:4px}
+#twps .ic{width:34px;height:34px;display:inline-block;vertical-align:middle;background:#fff8e6;border:1px solid #cbb48a;border-radius:5px;box-sizing:border-box;padding:1px}
+#twps .ic.sm{width:30px;height:30px}
+#twps .ic.empty{opacity:.35}
+#twps .icrow{display:flex;gap:3px;flex-wrap:wrap;margin:2px 0}
+#twps .nm{display:flex;align-items:center;gap:6px}
 #twps .row span{color:#6b4a24;font-weight:bold}
 #twps select,#twps input[type=text]{width:100%;box-sizing:border-box;padding:2px}
 #twps .tools{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
@@ -232,7 +271,7 @@
 <div class="cols">
   <div class="col"><h3>A – moje oblečenie z hry</h3>
     <div class="tools" style="grid-template-columns:1fr"><select id="twps-A">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
-    ${SL.map(s => `<div class="row"><span>${SN[s]}</span><input type="text" id="twps-An-${s}" readonly><span id="twps-Al-${s}"></span></div>`).join('')}
+    <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><input type="text" id="twps-An-${s}" readonly><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
@@ -243,7 +282,7 @@
       <div style="display:flex;gap:4px"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť</button>
         <select id="twps-all" title="Nastaví vylepšenie všetkým kusom v B"><option value="">★ všetko…</option>${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select></div>
     </div>
-    ${SL.map(s => `<div class="row"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('')}
+    <div class="colin">${dollHtml('B')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Br-${s}"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('')}</div></div>
   </div>
 </div>
 <div class="list" id="twps-list" style="display:none">
@@ -302,6 +341,7 @@
       $('res').innerHTML = h;
       $('sA').innerHTML = '<b>Sety A:</b> ' + (a.sets.join(', ') || '–');
       $('sB').innerHTML = '<b>Sety B:</b> ' + (b.sets.join(', ') || '–');
+      renderDoll('A', st.selA); renderDoll('B', st.selB);
       scheduleList();
     };
 
@@ -352,14 +392,14 @@
       show.forEach((c, n) => {
         if (c.kind === 'set') {
           const parts = Object.entries(c.combo).map(([sl, b]) => SN[sl] + ': ' + esc(((ItemManager.get(b * 1000) || {}).name || '').trim())).join(', ');
-          h += `<tr><td class="n">${n + 1}</td><td class="n"><b>Set</b> (${Object.keys(c.combo).length} ks)</td><td><b>${esc(c.si.name)}</b><br><small style="color:#7a6a50">${parts}</small></td>` +
+          h += `<tr><td class="n">${n + 1}</td><td class="n"><b>Set</b> (${Object.keys(c.combo).length} ks)</td><td><div class="icrow">${Object.entries(c.combo).map(([sl, b]) => icon(b, lvlFor(b), 'sm')).join('')}</div><b>${esc(c.si.name)}</b><br><small style="color:#7a6a50">${parts}</small></td>` +
             `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
             `<td class="n"><button class="put" data-combo="${esc(JSON.stringify(c.combo))}">➜ do B</button></td></tr>`;
           return;
         }
         const si = c.i.set && CAT.setInfo[c.i.set];
         const warn = (c.i.cls && c.i.cls !== Character.charClass ? ' ⚠trieda' : '') + (c.i.sex && c.i.sex !== Character.charSex ? ' ⚠pohlavie' : '') + (c.i.lvl > L ? ' (lvl ' + c.i.lvl + ')' : '');
-        h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</td>` +
+        h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td><div class="nm">${icon(c.i.base, lvlFor(c.i.base))}<div>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</div></div></td>` +
           `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
           `<td class="n"><button class="put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
       });
@@ -367,6 +407,7 @@
       if (!cands.length) h = '<i>Nič by B v tomto bonuse nezlepšilo.</i>';
       else if (cands.length > st.limit) h += `<div style="margin-top:6px"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
       body.innerHTML = h;
+      bindPops(body);
       const more = $('more'); if (more) more.onclick = () => { st.limit += 40; renderList(); };
     };
 
@@ -386,6 +427,12 @@
       e.target.value = ''; renderB(); calc(); save(); };
     $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); renderB(); calc(); };
     $('x').onclick = () => w.remove();
+    $('Bd').onclick = e => {
+      const c = e.target.closest && e.target.closest('.cell'); if (!c) return;
+      const sl = c.dataset.slot; const row = $('Br-' + sl); const sel = $('B-' + sl);
+      w.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl')); row.classList.add('hl');
+      sel.focus(); try { sel.showPicker(); } catch (er) { }
+    };
     $('mode').onchange = e => { st.mode = e.target.value; st.limit = 40; renderList(); save(); };
     $('ls').onchange = e => { st.slotF = e.target.value; st.limit = 40; renderList(); };
     $('lv').onchange = e => { st.candLvl = +e.target.value; renderList(); };
