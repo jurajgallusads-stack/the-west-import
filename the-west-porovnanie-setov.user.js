@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.1.0
+// @version      1.2.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -166,6 +166,14 @@
 #twps .plus{color:#17801a;font-weight:bold}#twps .minus{color:#b01818;font-weight:bold}#twps .zero{color:#888}
 #twps .sets{padding:0 10px 10px;display:flex;gap:10px;color:#5a4630}
 #twps .sets div{flex:1}
+#twps .list{margin:0 10px 10px;background:#fbf3df;border:1px solid #cbb48a;border-radius:8px;padding:8px}
+#twps .list .lc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+#twps .list .lc select{width:auto}
+#twps .list table{width:100%;border-collapse:collapse;background:#fffaf0}
+#twps .list th{background:#7a5226;color:#fff;padding:4px;font-weight:normal}
+#twps .list td{padding:3px 6px;border-bottom:1px solid #e0cfa8}
+#twps .list td.n{text-align:center;white-space:nowrap}
+#twps .list .put{background:#2f6b2f;color:#fff;border:0;border-radius:4px;padding:2px 8px;cursor:pointer}
 #twps .note{padding:0 10px 10px;color:#7a6a50;font-size:11px}
 #twps-btn{position:fixed;z-index:99999;right:8px;bottom:130px;background:#5c3a1a;color:#fff;border:2px solid #e2c48c;border-radius:8px;padding:6px 9px;cursor:pointer;font:bold 12px Arial;box-shadow:0 2px 8px rgba(0,0,0,.5)}`;
 
@@ -213,7 +221,7 @@
     const old = document.getElementById('twps'); if (old) old.remove();
     if (!document.getElementById('twps-css')) { const st = document.createElement('style'); st.id = 'twps-css'; st.textContent = CSS; document.head.appendChild(st); }
     const saved = lsGet('twps_state', {});
-    const st = { L: Character.level, A: saved.A || '(práve oblečené)', selA: {}, selB: saved.selB || {}, sort: saved.sort || 'cat', filter: '' };
+    const st = { L: Character.level, A: saved.A || '(práve oblečené)', selA: {}, selB: saved.selB || {}, sort: saved.sort || 'cat', filter: '', mode: saved.mode || 'sets', slotF: 'all', candLvl: 0, limit: 40 };
 
     const w = document.createElement('div'); w.id = 'twps';
     const wn = Object.keys(wardrobe);
@@ -228,6 +236,7 @@
   </div>
   <div class="col"><h3>B – na výber</h3>
     <div class="tools">
+      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy (rebríček na kombinovanie)</option></select>
       <select id="twps-set">${setOptions(st.sort, st.L)}</select>
       <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>Zoradiť: ${n}</option>`).join('')}</select>
       <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
@@ -236,6 +245,13 @@
     </div>
     ${SL.map(s => `<div class="row"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('')}
   </div>
+</div>
+<div class="list" id="twps-list" style="display:none">
+  <div class="lc"><b id="twps-lt">Rebríček jednotlivých kusov</b>
+    Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select>
+    Kandidáti <select id="twps-lv">${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
+    <span style="color:#7a6a50">„Zmena v B“ = o koľko sa zmení B, keď kus vložíš do jeho slotu (vrátane rozbitia alebo doplnenia setu).</span></div>
+  <div id="twps-lb"></div>
 </div>
 <table class="res" id="twps-res"></table>
 <div class="sets"><div id="twps-sA"></div><div id="twps-sB"></div></div>
@@ -249,7 +265,7 @@
       document.addEventListener('mousemove', e => { if (drag) { w.style.left = ox + e.clientX - sx + 'px'; w.style.top = oy + e.clientY - sy + 'px'; } });
       document.addEventListener('mouseup', () => drag = false); })();
 
-    const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort });
+    const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort, mode: st.mode });
 
     const renderA = () => {
       st.selA = JSON.parse(JSON.stringify(wardrobe[st.A] || {}));
@@ -286,11 +302,47 @@
       $('res').innerHTML = h;
       $('sA').innerHTML = '<b>Sety A:</b> ' + (a.sets.join(', ') || '–');
       $('sB').innerHTML = '<b>Sety B:</b> ' + (b.sets.join(', ') || '–');
+      scheduleList();
+    };
+
+    let lt; const scheduleList = () => { clearTimeout(lt); lt = setTimeout(renderList, 60); };
+    const renderList = () => {
+      const box = $('list'); if (st.mode !== 'items') { box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      const key = st.sort, body = $('lb');
+      if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček jednotlivých kusov'; body.innerHTML = '<i>V „Zoradiť“ vyber bonus (napr. Najviac zberu produktov, Najviac rýchlosti, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
+      $('lt').textContent = 'Rebríček kusov – ' + SORTNAME[key];
+      const L = st.L, unit = key === 'job' ? '' : ' %', f = norm(st.filter);
+      const base = compute(st.selB, L)[key] || 0;
+      const cands = [];
+      for (const slot of (st.slotF === 'all' ? SL : [st.slotF])) for (const i of CAT.bySlot[slot]) {
+        if (f && !(norm(i.name).includes(f) || (i.set && CAT.setInfo[i.set] && norm(CAT.setInfo[i.set].name).includes(f)))) continue;
+        const own = itemValue(i.base, key, L); const sv = i.set ? setValue(i.set, key, L) : 0;
+        if (own <= 0 && sv <= 0) continue;
+        const cur = st.selB[slot]; if (cur && cur.base === i.base) continue;
+        const sel = Object.assign({}, st.selB); sel[slot] = { base: i.base, lvl: i.up ? st.candLvl : 0 };
+        cands.push({ i, slot, own, d: Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10 });
+      }
+      cands.sort((a, b) => b.d - a.d || b.own - a.own || a.i.name.localeCompare(b.i.name));
+      const show = cands.slice(0, st.limit);
+      let h = `<table><tr><th>#</th><th>Slot</th><th style="text-align:left">Predmet</th><th>Samotný kus</th><th>Zmena v B</th><th></th></tr>`;
+      show.forEach((c, n) => {
+        const si = c.i.set && CAT.setInfo[c.i.set];
+        const warn = (c.i.cls && c.i.cls !== Character.charClass ? ' ⚠trieda' : '') + (c.i.sex && c.i.sex !== Character.charSex ? ' ⚠pohlavie' : '') + (c.i.lvl > L ? ' (lvl ' + c.i.lvl + ')' : '');
+        h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</td>` +
+          `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n ${c.d > 0 ? 'plus' : c.d < 0 ? 'minus' : 'zero'}">${c.d > 0 ? '+' : ''}${c.d}${unit}</td>` +
+          `<td class="n"><button class="put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
+      });
+      h += '</table>';
+      if (!cands.length) h = '<i>Nič nenájdené.</i>';
+      else if (cands.length > st.limit) h += `<div style="margin-top:6px"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
+      body.innerHTML = h;
+      const more = $('more'); if (more) more.onclick = () => { st.limit += 40; renderList(); };
     };
 
     $('A').onchange = e => { st.A = e.target.value; renderA(); calc(); save(); };
-    $('sort').onchange = e => { st.sort = e.target.value; $('set').innerHTML = setOptions(st.sort, st.L); renderB(); save(); };
-    let ft; $('f').oninput = e => { clearTimeout(ft); ft = setTimeout(() => { st.filter = e.target.value; renderB(); }, 250); };
+    $('sort').onchange = e => { st.sort = e.target.value; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L); renderB(); renderList(); save(); };
+    let ft; $('f').oninput = e => { clearTimeout(ft); ft = setTimeout(() => { st.filter = e.target.value; st.limit = 40; renderB(); renderList(); }, 250); };
     $('set').onchange = e => {
       const si = CAT.setInfo[e.target.value]; if (!si) return;
       for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!it || !SL.includes(it.type)) continue;
@@ -304,6 +356,15 @@
       e.target.value = ''; renderB(); calc(); save(); };
     $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); renderB(); calc(); };
     $('x').onclick = () => w.remove();
+    $('mode').onchange = e => { st.mode = e.target.value; st.limit = 40; renderList(); save(); };
+    $('ls').onchange = e => { st.slotF = e.target.value; st.limit = 40; renderList(); };
+    $('lv').onchange = e => { st.candLvl = +e.target.value; renderList(); };
+    $('lb').onclick = e => {
+      const b = e.target.closest && e.target.closest('.put'); if (!b) return;
+      const slot = b.dataset.slot, base = +b.dataset.base; const it = ItemManager.get(base * 1000);
+      st.selB[slot] = { base, lvl: it && it.upgradeable ? st.candLvl : 0 };
+      renderB(); calc(); save();
+    };
 
     renderA(); renderB(); calc();
   }
