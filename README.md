@@ -93,3 +93,13 @@ Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry)
 ## lenk (samostatný skript)
 
 [the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Cez menu Tampermonkey (**lenk → Obrázok obchodníka…**) si môžeš vybrať vlastný obrázok, ktorý prekryje dedka; uloží sa iba v tvojom prehliadači. Iba kreslí v prehliadači, na herný server nič neposiela.
+
+## Porovnanie setov (samostatný skript)
+
+[the-west-porovnanie-setov.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-porovnanie-setov.user.js): v hre pridá vpravo dole tlačidlo **⚖ Sety**, ktoré otvorí porovnanie dvoch oblečení pre zvolený level. Inštaluje sa rovnako cez Tampermonkey.
+
+- **A – moje oblečenie:** práve oblečené veci alebo ktorýkoľvek set zo šatníka, so skutočnou úrovňou vylepšenia každého kusu (dá sa zmeniť a vyskúšať, čo prinesie ďalšie vylepšenie).
+- **B – na výber:** všetky predmety hry podľa slotov. **Načítať celý set…** vyplní všetky kusy naraz (sety sú zoradené podľa eventov a rokov), **Zoradiť** ich zoskupí podľa eventov alebo zoradí od najlepšieho podľa XP, rýchlosti, zvieraťa, zberu produktov, šťastia, peňazí či pracovných bodov. **Hľadať** filtruje podľa názvu predmetu alebo setu, **A → B** skopíruje tvoje oblečenie na úpravy a **★ všetko…** nastaví vylepšenie všetkým kusom v B.
+- Výsledná tabuľka ukáže A, B a rozdiel pre rýchlosť zvieraťa, rýchlosť z predmetov, XP, zber produktov, šťastie, peniaze, regeneráciu a pracovné body, pod ňou aktívne sety s počtom kusov.
+- Počíta sa vlastnou kalkulačkou hry: bonusy na level, vylepšenia ★1–★5 (rýchlosť zvieraťa sa pri vylepšení mení inak ako ostatné bonusy) a set bonusy podľa počtu kusov.
+- Na herný server pošle najviac **jednu** požiadavku pri otvorení okna (zoznam setov v šatníku). Nič neoblieka ani nekupuje.
