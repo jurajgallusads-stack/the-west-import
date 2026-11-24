@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.8.0
+// @version      1.8.1
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -284,7 +284,7 @@
       <select id="twps-A" title="Východiskové oblečenie">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
       <button class="btn" id="twps-Areset" title="Vrátiť A na vybrané oblečenie zo šatníka">↺</button>
       <select id="twps-Aset" style="grid-column:1/3" title="Prepíše sloty v A kusmi zvoleného setu (aj keď ho nemáš)">${setOptions(st.sort, st.L)}</select>
-      <button class="btn" id="twps-Aopt" style="grid-column:1/3;background:#2f6b2f;font-weight:bold;padding:6px" title="Od súčasného A opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa bonus zvolený v „Zoradiť“ (v B) zlepšuje">⚡ Nájdi najlepšiu kombináciu pre A</button>
+      <button class="btn" id="twps-Aopt" style="grid-column:1/3;background:#2f6b2f;font-weight:bold;padding:6px" title="Poskladá najlepšiu zostavu LEN z vecí, ktoré máš v inventári alebo na sebe (s ich vylepšením), pre bonus zvolený v „Zoradiť“ (v B)">⚡ Najlepšia kombinácia z môjho inventára</button>
     </div>
     <div id="twps-Aoptlog" style="font-size:11px;color:#2b4a1a;margin:0 0 6px"></div>
     <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
@@ -369,12 +369,24 @@
     let optRunning = false;
     const optimize = async (side = 'B') => {
       if (optRunning) return;
-      const key = st.sort, log = $(side === 'A' ? 'Aoptlog' : 'optlog'), btn = $(side === 'A' ? 'Aopt' : 'opt'), S = side === 'A' ? st.selA : S;
+      const key = st.sort, log = $(side === 'A' ? 'Aoptlog' : 'optlog'), btn = $(side === 'A' ? 'Aopt' : 'opt'), S = side === 'A' ? st.selA : st.selB;
       if (!SORTNAME[key]) { log.innerHTML = '<b style="color:#b00">V „Zoradiť“ najprv vyber bonus (v časti B, napr. Najviac rýchlosti, Najviac XP).</b>'; return; }
       optRunning = true; btn.disabled = true;
       const L = st.L, unit = NOUNIT[key] ? '' : ' %';
-      const okIt = it => it && !(it.level > L) && !(it.characterClass && it.characterClass !== Character.charClass) && !(it.characterSex && it.characterSex !== Character.charSex);
-      const lvlOf = b => { const it = ItemManager.get(b * 1000); return it && it.upgradeable ? st.candLvl : 0; };
+      // A: len veci z inventára a z toho, čo má postava na sebe (s ich skutočným vylepšením)
+      let own = null;
+      if (side === 'A') {
+        own = {};
+        const put = id => { const b = Math.floor(id / 1000), l = id % 1000; if (!(b in own) || l > own[b]) own[b] = l; };
+        for (const sl of SL) {
+          try { for (const i of (Bag.getItemsByType(sl) || [])) if (i && i.obj) put(i.obj.item_id); } catch (e) {}
+          try { const w = Wear.wear[sl]; if (w && w.obj) put(w.obj.item_id); } catch (e) {}
+        }
+        if (!Object.keys(own).length) { log.innerHTML = '<b style="color:#b00">Inventár sa nenačítal – otvor raz v hre inventár a skús znova.</b>'; optRunning = false; btn.disabled = false; return; }
+        for (const sl of SL) { const p = S[sl]; if (p && p.base in own) p.lvl = own[p.base]; }
+      }
+      const okIt = it => it && (!own || (it.item_base_id || Math.floor(it.item_id / 1000)) in own) && !(it.level > L) && !(it.characterClass && it.characterClass !== Character.charClass) && !(it.characterSex && it.characterSex !== Character.charSex);
+      const lvlOf = b => { if (own) return own[b] || 0; const it = ItemManager.get(b * 1000); return it && it.upgradeable ? st.candLvl : 0; };
       const nameOf = b => ((ItemManager.get(b * 1000) || {}).name || '').trim();
       // kandidáti: kusy s bonusom (samé alebo cez set) + celé sety (pri viacerých zbraniach všetky kombinácie)
       const singles = [];
@@ -417,7 +429,7 @@
       if (side === 'A') paintA(); else renderB();
       calc(); save();
       log.innerHTML = steps.length
-        ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Kroky: ` + steps.map((t, i) => (i + 1) + ') ' + t).join(', ') + '. <i>Hľadá sa postupnými výmenami, takže to nemusí byť úplne najlepšia možná zostava, ale mala by byť blízko. Vynecháva kusy pre iný level, triedu či pohlavie.</i>'
+        ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Kroky: ` + steps.map((t, i) => (i + 1) + ') ' + t).join(', ') + '. <i>Hľadá sa postupnými výmenami, takže to nemusí byť úplne najlepšia možná zostava, ale mala by byť blízko. Vynecháva kusy pre iný level, triedu či pohlavie.</i>' + (own ? ' <i>Použité len veci z inventára a z toho, čo máš na sebe, s ich vylepšením.</i>' : '')
         : `<b>${side} sa už pre ${SORTNAME[key]} nedá zlepšiť jednou výmenou kusu ani setu.</b>`;
       optRunning = false; btn.disabled = false;
     };
