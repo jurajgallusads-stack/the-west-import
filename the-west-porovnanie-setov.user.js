@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.5.0
+// @version      1.5.1
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -324,10 +324,38 @@
       }
     };
     const renderA = () => { st.selA = JSON.parse(JSON.stringify(wardrobe[st.A] || {})); paintA(); };
+    // zoznam do výberu v B: pri zoradení podľa bonusu sa ráta, o koľko kus zlepší SÚČASNÉ B
+    const optionsB = slot => {
+      const key = st.sort, p = st.selB[slot], selBase = p ? p.base : null;
+      if (!SORTNAME[key]) return itemOptions(slot, key, st.filter, selBase, st.L);
+      const L = st.L, unit = key === 'job' ? '' : ' %', f = norm(st.filter);
+      const base = compute(st.selB, L)[key] || 0;
+      const lab = (i, extra) => {
+        const warn = (i.cls && i.cls !== Character.charClass ? ' ⚠trieda' : '') + (i.sex && i.sex !== Character.charSex ? ' ⚠pohlavie' : '') + (i.lvl > L ? ' (lvl ' + i.lvl + ')' : '');
+        return `<option value="${i.base}" ${i.base === selBase ? 'selected' : ''}>${esc(i.name)}${extra}${warn}</option>`;
+      };
+      const up = [], rest = [];
+      for (const i of CAT.bySlot[slot]) {
+        if (f && i.base !== selBase && !(norm(i.name).includes(f) || (i.set && CAT.setInfo[i.set] && norm(CAT.setInfo[i.set].name).includes(f)))) continue;
+        if (i.base === selBase) { up.push([i, 0, true]); continue; }
+        const own = itemValue(i.base, key, L), sv = i.set ? setValue(i.set, key, L) : 0;
+        if (own <= 0 && sv <= 0) { rest.push(i); continue; }
+        const sel = Object.assign({}, st.selB); sel[slot] = { base: i.base, lvl: i.up ? st.candLvl : 0 };
+        const d = Math.round(((compute(sel, L)[key] || 0) - base) * 10) / 10;
+        if (d > 0) up.push([i, d]); else rest.push(i);
+      }
+      up.sort((a, b) => (b[2] ? 1e9 : b[1]) - (a[2] ? 1e9 : a[1]));
+      let h = '<option value="">– nič –</option>';
+      h += `<optgroup label="Zlepší B – ${SORTNAME[key]}">` + up.map(([i, d, cur]) => lab(i, cur ? '  (teraz)' : `  [+${d}${unit}]`)).join('') + '</optgroup>';
+      h += `<optgroup label="Nezlepší B">` + rest.sort((a, b) => a.name.localeCompare(b.name)).map(i => lab(i, '')).join('') + '</optgroup>';
+      return h;
+    };
+    const fillB = () => { for (const s of SL) $('B-' + s).innerHTML = optionsB(s); };
+    let bt; const scheduleB = () => { clearTimeout(bt); bt = setTimeout(fillB, 80); };
     const renderB = () => {
       for (const s of SL) {
         const p = st.selB[s];
-        $('B-' + s).innerHTML = itemOptions(s, st.sort, st.filter, p ? p.base : null, st.L);
+        $('B-' + s).innerHTML = optionsB(s);
         const it = p && ItemManager.get(p.base * 1000);
         $('Bl-' + s).innerHTML = lvlSelect('twps-Blv-' + s, p ? p.lvl : 0, !!(it && it.upgradeable));
         $('B-' + s).onchange = e => { const b = +e.target.value; if (b) st.selB[s] = { base: b, lvl: 0 }; else delete st.selB[s]; renderSlotB(s); calc(); save(); };
@@ -351,7 +379,7 @@
       $('sA').innerHTML = '<b>Sety A:</b> ' + (a.sets.join(', ') || '–');
       $('sB').innerHTML = '<b>Sety B:</b> ' + (b.sets.join(', ') || '–');
       renderDoll('A', st.selA); renderDoll('B', st.selB);
-      scheduleList();
+      scheduleList(); scheduleB();
     };
 
     let lt; const scheduleList = () => { clearTimeout(lt); lt = setTimeout(renderList, 60); };
@@ -452,7 +480,7 @@
     };
     $('mode').onchange = e => { st.mode = e.target.value; st.limit = 40; renderList(); save(); };
     $('ls').onchange = e => { st.slotF = e.target.value; st.limit = 40; renderList(); };
-    $('lv').onchange = e => { st.candLvl = +e.target.value; renderList(); };
+    $('lv').onchange = e => { st.candLvl = +e.target.value; renderList(); fillB(); };
     $('lb').onclick = e => {
       const b = e.target.closest && e.target.closest('.put'); if (!b) return;
       const put = (slot, base) => { const it = ItemManager.get(base * 1000); st.selB[slot] = { base, lvl: it && it.upgradeable ? st.candLvl : 0 }; };
