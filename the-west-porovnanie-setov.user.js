@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.8.1
+// @version      1.9.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -179,52 +179,100 @@
     wardrobe = out;
   }
 
-  const CSS = `
-#twps{position:fixed;z-index:100000;top:30px;left:50%;transform:translateX(-50%);width:1200px;max-width:98vw;max-height:94vh;overflow:auto;background:#f3e6c8;color:#2b1d0e;border:3px solid #5c3a1a;border-radius:10px;font:12px Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
-#twps .hd{display:flex;align-items:center;gap:10px;background:#5c3a1a;color:#fff;padding:8px 12px;cursor:move;position:sticky;top:0;z-index:2}
-#twps .hd b{font-size:15px;flex:1}
-#twps .hd input,#twps .hd select{font-size:12px}
-#twps .x{background:#a33;color:#fff;border:0;border-radius:4px;padding:3px 9px;cursor:pointer;font-weight:bold}
-#twps .cols{display:flex;gap:10px;padding:10px}
-#twps .col{flex:1;background:#fbf3df;border:1px solid #cbb48a;border-radius:8px;padding:8px;min-width:0}
-#twps .col h3{margin:0 0 6px;font-size:13px;color:#5c3a1a}
-#twps .row{display:grid;grid-template-columns:86px 1fr 46px;gap:4px;align-items:center;margin:3px 0}
-#twps .colin{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
-#twps .slots{flex:1;min-width:230px}
-#twps .doll{flex:0 0 auto;display:grid;grid-template-columns:74px 86px 74px;grid-template-rows:66px 120px 74px 66px;gap:5px;grid-template-areas:"neck head ." "right_arm body left_arm" "animal pants belt" "yield pants foot";background:#4a3420;padding:7px;border-radius:8px;box-shadow:inset 0 0 8px rgba(0,0,0,.6)}
-#twps .cell{position:relative;background:radial-gradient(#d9c7a0,#b79c6c);border:2px solid #7a5a32;border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  // Vzhľad ako remeselná kalkulačka: okno hry, skupinové rámy, herné tlačidlá a tabuľky z obrázkov hry.
+  const CDN = () => String((window.Game && Game.cdnURL) || 'https://westcz.innogamescdn.com').replace(/\/$/, '');
+  const CSS = () => { const img = p => `url("${CDN()}/images/tw2gui/${p}")`; return `
+#twps{font:12px Arial,Verdana,sans-serif;color:#2b1d0e;line-height:1.3;text-align:left}
+#twps.in-win{height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:12px 12px 8px}
+#twps.floating{position:fixed;z-index:100000;top:30px;left:50%;transform:translateX(-50%);width:1180px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.twps-win .tw2gui_window_inset{background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:0 0 !important}
+#twps::-webkit-scrollbar{width:11px}#twps::-webkit-scrollbar-track{background:rgba(90,60,20,.15);border-radius:6px}
+#twps::-webkit-scrollbar-thumb{background:#8b6b3f;border-radius:6px;border:2px solid #e8d6aa}
+#twps .gf{margin:0 0 10px;height:auto !important;position:relative}
+#twps .gf .tw2gui_groupframe_content_pane{position:relative;height:auto !important;padding:12px 14px 12px}
+#twps .chead{display:flex;flex-direction:column}
+#twps table.list small.parts{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:10px;line-height:12px}
+#twps .tb{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+#twps .tb label{display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5b3a12}
+#twps .tb .grow{flex:1}
+#twps .tb .hint{font-weight:normal;color:#6b5a40;font-size:11px}
+#twps .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start}
+#twps .pnl{position:relative;margin:0 0 10px;padding:12px 14px;background:#ead9b0 ${img('groupframe/groupframe_bg.jpg?12')};border:1px solid #a8885a;border-radius:5px;box-shadow:inset 0 0 8px rgba(90,60,20,.3),0 1px 0 rgba(255,255,255,.4),0 0 0 1px rgba(60,35,10,.25)}
+#twps .cols .pnl{margin:0}
+#twps .cols{margin-bottom:10px}
+#twps h3,#twps h4{margin:0 0 8px;padding:0 0 5px;font:bold 15px Georgia,'Times New Roman',serif;color:#3b2a14;border-bottom:1px solid rgba(110,80,40,.35);display:flex;align-items:baseline;gap:8px}
+#twps h3 small,#twps h4 small{font:normal 11px Arial,sans-serif;color:#6b5a40}
+#twps .tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;align-items:center;margin-bottom:8px}
+#twps .tools .full{grid-column:1/-1}
+#twps .tools .pair{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+#twps .tools .btns{display:flex;gap:4px;align-items:center;justify-content:flex-end}
+#twps .tools select,#twps .tools input[type=text]{width:100%}
+#twps .optbtn{grid-column:1/-1;display:flex;justify-content:center;margin:2px 0}
+#twps select,#twps input[type=text],#twps input[type=number]{height:24px;box-sizing:border-box;padding:0 6px;border:1px solid #8b6b3f;border-radius:3px;background:#f7efd9;color:#3b2a14;font:12px Arial,sans-serif;box-shadow:inset 0 1px 2px rgba(0,0,0,.18);min-width:0;vertical-align:middle}
+#twps input[type=number]{width:58px;text-align:right}
+#twps select:focus,#twps input:focus{outline:none;border-color:#5b3a12;box-shadow:0 0 0 2px rgba(210,155,76,.45)}
+#twps select:disabled{opacity:.45}
+#twps optgroup{font-style:normal;font-weight:bold;color:#5b3a12;background:#ead9ae}
+#twps option{font-weight:normal;color:#2b1d0e;background:#f7efd9}
+#twps button.tw2gui_button{border:0;background:none;padding:0;font:inherit;display:inline-block;vertical-align:middle;cursor:pointer}
+#twps button.tw2gui_button:disabled{opacity:.55;filter:grayscale(.5);cursor:default}
+#twps button.tw2gui_button .textart_title{white-space:nowrap}
+#twps button.btn:not(.tw2gui_button){background:#7a5226;color:#fff;border:1px solid #4a2f12;border-radius:3px;height:24px;padding:0 10px;cursor:pointer;font:bold 12px Arial,sans-serif}
+#twps .optlog{font-size:11px;line-height:1.45;color:#2b4a1a;margin:10px 0 0;padding:6px 8px;background:rgba(120,160,80,.13);border:1px solid rgba(80,120,50,.35);border-radius:3px}
+#twps .optlog:empty{display:none}
+#twps .colin{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-start;justify-content:center}
+#twps .slots{flex:1 1 290px;min-width:0;display:flex;flex-direction:column;gap:3px}
+#twps .row{display:grid;grid-template-columns:78px minmax(0,1fr) 54px;gap:6px;align-items:center;padding:1px 3px;border-radius:3px;margin:0}
+#twps .row>span:first-child{color:#5b3a12;font-weight:bold;font-size:11px;line-height:12px}
+#twps .row select{width:100%}
+#twps .row.hl{background:rgba(255,206,90,.4)}
+#twps .doll{flex:0 0 auto;display:grid;grid-template-columns:62px 74px 62px;grid-template-rows:58px 104px 62px 58px;gap:5px;grid-template-areas:"neck head ." "right_arm body left_arm" "animal pants belt" "yield pants foot";padding:7px;border-radius:5px;background:linear-gradient(#4a3420,#33230f);border:1px solid #2a1a08;box-shadow:inset 0 0 10px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.35)}
+#twps .cell{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px;background:radial-gradient(#e6d6b0,#b99d6b);border:2px solid #6e5129;box-shadow:inset 0 0 6px rgba(70,45,15,.55)}
 #twps .cell img{max-width:100%;max-height:100%;object-fit:contain}
-#twps .cell .emp{color:#6e5634;font-size:10px;text-align:center;padding:2px}
+#twps .cell .emp{color:#6e5634;font-size:10px;text-align:center;padding:2px;line-height:11px}
 #twps .cell .bd{position:absolute;top:2px;left:2px;background:#2b1d0e;color:#ffd24a;font:bold 10px Arial;padding:1px 4px;border-radius:3px;pointer-events:none}
 #twps .dollB .cell{cursor:pointer}
 #twps .dollB .cell:hover{border-color:#ffd24a}
-#twps .row.hl{background:#ffe9a8;border-radius:4px}
-#twps .ic{width:34px;height:34px;display:inline-block;vertical-align:middle;background:#fff8e6;border:1px solid #cbb48a;border-radius:5px;box-sizing:border-box;padding:1px}
-#twps .ic.sm{width:30px;height:30px}
+#twps table.tw{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+#twps table.tw th{background:${img('table/table_thead.jpg?3')} 50% 100%/100% 100% no-repeat;height:28px;padding:0 10px;font-weight:bold;color:#000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#twps table.tw tbody tr{background:${img('table/table_row.png')} 50% 100%/100% 100% no-repeat}
+#twps table.tw tbody tr:hover td{background:rgba(255,226,150,.28)}
+#twps table.tw td{height:30px;padding:2px 10px;box-sizing:border-box;text-align:center;vertical-align:middle;font-variant-numeric:tabular-nums}
+#twps table.tw th.l,#twps table.tw td.l{text-align:left}
+#twps table.res td:first-child{font-weight:bold;color:#3b2a14}
+#twps table.res tr.main td{font-size:13px;background:rgba(210,155,76,.16)}
+#twps .plus{color:#2f6b1f;font-weight:bold}#twps .minus{color:#8b0000;font-weight:bold}#twps .zero{color:#8a7a60}
+#twps .sets{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 2px 0;color:#4a3820}
+#twps .sets b{color:#5b3a12}
+#twps .note{margin:8px 2px 0;color:#6b5a40;font-size:11px;line-height:1.4}
+#twps .lc{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+#twps .lc label{display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5b3a12}
+#twps .lc .hint{flex-basis:100%;font-size:11px;color:#6b5a40}
+#twps table.list td.l small{color:#6b5a40}
+#twps .ic{width:34px;height:34px;display:inline-block;vertical-align:middle;background:#f7efd9;border:1px solid #a8885a;border-radius:4px;box-sizing:border-box;padding:1px}
+#twps .ic.sm{width:28px;height:28px}
 #twps .ic.empty{opacity:.35}
 #twps .icrow{display:flex;gap:3px;flex-wrap:wrap;margin:2px 0}
-#twps .nm{display:flex;align-items:center;gap:6px}
-#twps .row span{color:#6b4a24;font-weight:bold}
-#twps select,#twps input[type=text]{width:100%;box-sizing:border-box;padding:2px}
-#twps .tools{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
-#twps .btn{background:#7a5226;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer}
-#twps table.res{width:calc(100% - 20px);margin:0 10px 6px;border-collapse:collapse;background:#fffaf0}
-#twps table.res th{background:#5c3a1a;color:#fff;padding:5px}
-#twps table.res td{padding:4px 6px;border-bottom:1px solid #e0cfa8;text-align:center}
-#twps table.res td:first-child{text-align:left;font-weight:bold}
-#twps .plus{color:#17801a;font-weight:bold}#twps .minus{color:#b01818;font-weight:bold}#twps .zero{color:#888}
-#twps .sets{padding:0 10px 10px;display:flex;gap:10px;color:#5a4630}
-#twps .sets div{flex:1}
-#twps .list{margin:0 10px 10px;background:#fbf3df;border:1px solid #cbb48a;border-radius:8px;padding:8px}
-#twps .list .lc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
-#twps .list .lc select{width:auto}
-#twps .list table{width:100%;border-collapse:collapse;background:#fffaf0}
-#twps .list th{background:#7a5226;color:#fff;padding:4px;font-weight:normal}
-#twps .list td{padding:3px 6px;border-bottom:1px solid #e0cfa8}
-#twps .list td.n{text-align:center;white-space:nowrap}
-#twps .list .put{background:#2f6b2f;color:#fff;border:0;border-radius:4px;padding:2px 8px;cursor:pointer}
-#twps .note{padding:0 10px 10px;color:#7a6a50;font-size:11px}
-#twps-btn{position:fixed;z-index:99999;right:8px;bottom:130px;background:#5c3a1a;color:#fff;border:2px solid #e2c48c;border-radius:8px;padding:6px 9px;cursor:pointer;font:bold 12px Arial;box-shadow:0 2px 8px rgba(0,0,0,.5)}`;
+#twps .nm{display:flex;align-items:center;gap:8px}
+#twps .more{display:flex;justify-content:center;margin-top:8px}
+#twps .muted{color:#6b5a40}
+.twps-launch{float:left;width:50px}
+.twps-launch #twps-btn img{display:block}
+.twps-launch #twps-btn:hover img{filter:brightness(1.15) drop-shadow(0 0 3px rgba(255,220,140,.8))}
+#twps-btn.fixed{position:fixed;z-index:99999;right:8px;bottom:130px;background:#5c3a1a;color:#fff;border:2px solid #e2c48c;border-radius:8px;padding:6px 9px;cursor:pointer;font:bold 12px Arial;box-shadow:0 2px 8px rgba(0,0,0,.5)}`; };
+  const installCss = () => { if (!document.getElementById('twps-css')) { const st = document.createElement('style'); st.id = 'twps-css'; st.textContent = CSS(); document.head.appendChild(st); } };
+  const groupframe = inner => `<div class="tw2gui_groupframe gf"><div class="tw2gui_groupframe_background bg0"></div><div class="tw2gui_groupframe_background bg1"></div><div class="tw2gui_groupframe_background bg2"></div><div class="tw2gui_groupframe_background bg3"></div><div class="tw2gui_groupframe_background bg4"></div><div class="tw2gui_groupframe_frame tw2gui_bg_tl"></div><div class="tw2gui_groupframe_frame tw2gui_bg_tr"></div><div class="tw2gui_groupframe_frame tw2gui_bg_bl"></div><div class="tw2gui_groupframe_frame tw2gui_bg_br"></div><div class="tw2gui_groupframe_content_pane">${inner}</div></div>`;
+  const panel = inner => `<div class="pnl">${inner}</div>`;
+  // Tlačidlá v grafike hry (ako v remeselnej kalkulačke); logika ostáva na pôvodnom <button>.
+  const skinButtons = root => {
+    if (!root) return;
+    root.querySelectorAll('button.btn:not(.tw2gui_button)').forEach(b => {
+      const label = b.textContent;
+      b.classList.add('tw2gui_button');
+      b.innerHTML = '<div class="tw2gui_button_right_cap"></div><div class="tw2gui_button_left_cap"></div><div class="tw2gui_button_middle_bg"></div><div class="textart_title"></div>';
+      b.querySelector('.textart_title').textContent = label;
+    });
+  };
 
   function lvlSelect(id, val, enabled) {
     let h = `<select id="${id}" ${enabled ? '' : 'disabled'} title="Úroveň vylepšenia">`;
@@ -265,62 +313,83 @@
     return h;
   }
 
+  let gwin = null;
+  const isOpen = () => !!document.getElementById('twps');
+  function closeWin() {
+    if (gwin) { const g = gwin; gwin = null; try { (wman.getById && wman.getById('twps') || g).destroy(); } catch (e) { } }
+    const old = document.getElementById('twps'); if (old) old.remove();
+  }
   function open() {
     if (!CAT) buildCatalog();
-    const old = document.getElementById('twps'); if (old) old.remove();
-    if (!document.getElementById('twps-css')) { const st = document.createElement('style'); st.id = 'twps-css'; st.textContent = CSS; document.head.appendChild(st); }
+    closeWin();
+    installCss();
     const saved = lsGet('twps_state', {});
     const st = { L: Character.level, A: saved.A || '(práve oblečené)', selA: {}, selB: saved.selB || {}, sort: saved.sort || 'cat', filter: '', mode: saved.mode || 'sets', slotF: 'all', candLvl: 0, limit: 40 };
 
     const w = document.createElement('div'); w.id = 'twps';
     const wn = Object.keys(wardrobe);
-    w.innerHTML = `
-<div class="hd"><b>⚖ Porovnanie setov</b>
-  Level <input type="number" id="twps-L" min="1" max="250" value="${st.L}" style="width:52px">
-  <button class="x" id="twps-x">✕</button></div>
+    const slotRows = side => SL.map(s => side === 'A'
+      ? `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`
+      : `<div class="row" id="twps-Br-${s}"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('');
+    w.innerHTML = groupframe(`<div class="tb">
+    <label>Level <input type="number" id="twps-L" min="1" max="250" value="${st.L}"></label>
+    <label>Zoradiť podľa <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    <span class="hint grow">Bonus platí pre zoradenie výberov, rebríček aj ⚡ hľadanie najlepšej kombinácie v A aj B.</span>
+    <button class="x" id="twps-x" hidden></button></div>`) + `
 <div class="cols">
-  <div class="col"><h3>A – moje oblečenie (dá sa upraviť)</h3>
-    <div class="tools" style="grid-template-columns:1fr auto">
-      <select id="twps-A" title="Východiskové oblečenie">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <button class="btn" id="twps-Areset" title="Vrátiť A na vybrané oblečenie zo šatníka">↺</button>
-      <select id="twps-Aset" style="grid-column:1/3" title="Prepíše sloty v A kusmi zvoleného setu (aj keď ho nemáš)">${setOptions(st.sort, st.L)}</select>
-      <button class="btn" id="twps-Aopt" style="grid-column:1/3;background:#2f6b2f;font-weight:bold;padding:6px" title="Poskladá najlepšiu zostavu LEN z vecí, ktoré máš v inventári alebo na sebe (s ich vylepšením), pre bonus zvolený v „Zoradiť“ (v B)">⚡ Najlepšia kombinácia z môjho inventára</button>
-    </div>
-    <div id="twps-Aoptlog" style="font-size:11px;color:#2b4a1a;margin:0 0 6px"></div>
-    <div class="colin">${dollHtml('A')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`).join('')}</div></div>
-  </div>
-  <div class="col"><h3>B – na výber</h3>
+  ${panel(`<div class="chead"><h3>A <small>moje oblečenie (dá sa upraviť)</small></h3>
     <div class="tools">
-      <select id="twps-mode" style="grid-column:1/3;font-weight:bold"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Ponuka: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Ponuka: jednotlivé kusy a páry (kôň + sedlo, zbrane)</option><option value="mix" ${st.mode === 'mix' ? 'selected' : ''}>Ponuka: najlepšie výmeny (kusy aj celé sety)</option></select>
-      <select id="twps-set">${setOptions(st.sort, st.L)}</select>
-      <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>Zoradiť: ${n}</option>`).join('')}</select>
-      <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
-      <div style="display:flex;gap:4px"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť</button>
-        <select id="twps-all" title="Nastaví vylepšenie všetkým kusom v B"><option value="">★ všetko…</option>${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select></div>
-      <button class="btn" id="twps-opt" style="grid-column:1/3;background:#2f6b2f;font-weight:bold;padding:6px" title="Od súčasného B opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa zvolený bonus zlepšuje">⚡ Nájdi najlepšiu kombináciu pre zvolený bonus</button>
+      <div class="pair full"><select id="twps-A" title="Východiskové oblečenie">${wn.map(n => `<option ${n === st.A ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><div class="btns"><button class="btn" id="twps-Areset" title="Vrátiť A na vybrané oblečenie zo šatníka">↺ Obnoviť</button></div></div>
+      <select id="twps-Aset" class="full" title="Prepíše sloty v A kusmi zvoleného setu (aj keď ho nemáš)">${setOptions(st.sort, st.L)}</select>
+      <div class="optbtn"><button class="btn" id="twps-Aopt" title="Poskladá najlepšiu zostavu LEN z vecí, ktoré máš v inventári alebo na sebe (s ich vylepšením), pre zvolený bonus">⚡ Najlepšia kombinácia z môjho inventára</button></div>
     </div>
-    <div id="twps-optlog" style="font-size:11px;color:#2b4a1a;margin:0 0 6px"></div>
-    <div class="colin">${dollHtml('B')}<div class="slots">${SL.map(s => `<div class="row" id="twps-Br-${s}"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('')}</div></div>
-  </div>
+    </div>
+    <div class="colin">${dollHtml('A')}<div class="slots">${slotRows('A')}</div></div>
+    <div id="twps-Aoptlog" class="optlog"></div>`)}
+  ${panel(`<div class="chead"><h3>B <small>na výber (všetky predmety v hre)</small></h3>
+    <div class="tools">
+      <select id="twps-mode" class="full"><option value="sets" ${st.mode === 'sets' ? 'selected' : ''}>Rebríček: celé sety</option><option value="items" ${st.mode === 'items' ? 'selected' : ''}>Rebríček: jednotlivé kusy a páry (kôň + sedlo, zbrane)</option><option value="mix" ${st.mode === 'mix' ? 'selected' : ''}>Rebríček: najlepšie výmeny (kusy aj celé sety)</option></select>
+      <select id="twps-set" class="full">${setOptions(st.sort, st.L)}</select>
+      <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
+      <select id="twps-all" title="Nastaví vylepšenie všetkým kusom v B"><option value="">★ Vylepšenie všetkého v B…</option>${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
+      <div class="btns full" style="justify-content:flex-start"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť B</button></div>
+      <div class="optbtn"><button class="btn" id="twps-opt" title="Od súčasného B opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa zvolený bonus zlepšuje">⚡ Nájdi najlepšiu kombináciu</button></div>
+    </div>
+    </div>
+    <div class="colin">${dollHtml('B')}<div class="slots">${slotRows('B')}</div></div>
+    <div id="twps-optlog" class="optlog"></div>`)}
 </div>
-<div class="list" id="twps-list" style="display:none">
-  <div class="lc"><b id="twps-lt">Rebríček jednotlivých kusov</b>
-    Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select>
-    Kandidáti <select id="twps-lv">${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
-    <span style="color:#7a6a50">Len to, čo B zlepší. „Zmena v B“ = o koľko sa B zlepší, keď kus alebo celý set vložíš na jeho miesto (vrátane rozbitia alebo doplnenia setov).</span></div>
-  <div id="twps-lb"></div>
-</div>
-<table class="res" id="twps-res"></table>
+${panel(`<h4>Porovnanie A a B</h4>
+<table class="tw res" id="twps-res"></table>
 <div class="sets"><div id="twps-sA"></div><div id="twps-sB"></div></div>
-<div class="note">Počíta sa kalkulačkou hry (bonusy na level, vylepšenia ★1–★5, sety podľa počtu kusov). Rýchlosť zvieraťa a rýchlosť z predmetov sú zvlášť, lebo hra ich kombinuje inak. ⚠ = predmet je pre inú triedu alebo pohlavie. (lvl X) = vyšší level, než je zadaný.</div>`;
-    document.body.appendChild(w);
+<div class="note">Počíta sa kalkulačkou hry (bonusy na level, vylepšenia ★1–★5, sety podľa počtu kusov). Celková rýchlosť pohybu = (100 % + zviera + 1 % za bod jazdy) × (100 % + rýchlosť z predmetov), bez prémie a dočasných bonusov. ⚠ = predmet je pre inú triedu alebo pohlavie. (lvl X) = vyšší level, než je zadaný.</div>`)}
+<div id="twps-list" style="display:none">${panel(`<h4 id="twps-lt">Rebríček</h4>
+  <div class="lc">
+    <label>Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select></label>
+    <label>Kandidáti <select id="twps-lv">${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select></label>
+    <span class="hint">Len to, čo B zlepší. „Zmena v B“ = o koľko sa B zlepší, keď kus alebo celý set vložíš na jeho miesto (vrátane rozbitia alebo doplnenia setov).</span></div>
+  <div id="twps-lb"></div>`)}</div>`;
+    // Okno hry (rám, titulok, presúvanie, zatvorenie robí hra); bez neho obyčajný plávajúci panel.
+    const canWin = !!(window.wman && wman.open && window.west && west.gui && west.gui.Window);
+    if (canWin) {
+      const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
+      gwin = wman.open('twps', 'Porovnanie setov', 'noreload twps-win');
+      try { gwin.setMiniTitle('Porovnanie setov'); } catch (e) { }
+      gwin.setSize(Math.max(760, Math.min(1180, vw - 30)), Math.max(520, Math.min(920, vh - 110)));
+      try { gwin.center(); } catch (e) { }
+      w.classList.add('in-win');
+      gwin.appendToContentPane(w);
+      try { gwin.addEventListener(window.TWE ? TWE('WINDOW_DESTROY') : 'WINDOW_DESTROY', () => { gwin = null; }); } catch (e) { }
+    } else { w.classList.add('floating'); document.body.appendChild(w); }
+    // Písanie do polí nesmie spúšťať klávesové skratky hry.
+    for (const ev of ['keydown', 'keyup', 'keypress']) w.addEventListener(ev, e => e.stopPropagation());
+    skinButtons(w);
     const $ = id => document.getElementById('twps-' + id);
-
-    // posúvanie okna
-    (() => { const hd = w.querySelector('.hd'); let sx, sy, ox, oy, drag = false;
-      hd.addEventListener('mousedown', e => { if (e.target.tagName !== 'DIV' && e.target.tagName !== 'B') return; drag = true; const r = w.getBoundingClientRect(); sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top; w.style.transform = 'none'; w.style.left = ox + 'px'; w.style.top = oy + 'px'; e.preventDefault(); });
-      document.addEventListener('mousemove', e => { if (drag) { w.style.left = ox + e.clientX - sx + 'px'; w.style.top = oy + e.clientY - sy + 'px'; } });
-      document.addEventListener('mouseup', () => drag = false); })();
+    // Hlavičky A a B rovnako vysoké, aby panely s postavou a sloty stáli vedľa seba na rovnakej výške.
+    const equalize = () => requestAnimationFrame(() => {
+      const hs = [...w.querySelectorAll('.chead')]; hs.forEach(h => h.style.minHeight = '');
+      const m = Math.max(...hs.map(h => h.offsetHeight)); hs.forEach(h => h.style.minHeight = m + 'px');
+    });
 
     const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort, mode: st.mode });
 
@@ -370,7 +439,7 @@
     const optimize = async (side = 'B') => {
       if (optRunning) return;
       const key = st.sort, log = $(side === 'A' ? 'Aoptlog' : 'optlog'), btn = $(side === 'A' ? 'Aopt' : 'opt'), S = side === 'A' ? st.selA : st.selB;
-      if (!SORTNAME[key]) { log.innerHTML = '<b style="color:#b00">V „Zoradiť“ najprv vyber bonus (v časti B, napr. Najviac rýchlosti, Najviac XP).</b>'; return; }
+      if (!SORTNAME[key]) { log.innerHTML = '<b style="color:#b00">Hore v „Zoradiť podľa“ najprv vyber bonus (napr. Najrýchlejší pohyb po mape, Najviac XP).</b>'; return; }
       optRunning = true; btn.disabled = true;
       const L = st.L, unit = NOUNIT[key] ? '' : ' %';
       // A: len veci z inventára a z toho, čo má postava na sebe (s ich skutočným vylepšením)
@@ -452,17 +521,17 @@
     };
     const calc = () => {
       const a = compute(st.selA, st.L), b = compute(st.selB, st.L);
-      let h = `<tr><th style="text-align:left">Bonus (level ${st.L})</th><th>A – moje</th><th>B – na výber</th><th>Rozdiel B − A</th></tr>`;
+      let h = `<colgroup><col style="width:34%"><col style="width:22%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th class="l">Bonus (level ${st.L})</th><th>A – moje</th><th>B – na výber</th><th>Rozdiel B − A</th></tr></thead><tbody>`;
       for (const [k, n, u] of ROWS) {
         const d = Math.round((b[k] - a[k]) * 10) / 10;
         const f = v => v ? (k === 'job' ? v : '+' + v + (u ? ' ' + u : '')) : '–';
-        h += `<tr><td>${n}</td><td>${f(a[k])}</td><td>${f(b[k])}</td><td class="${d > 0 ? 'plus' : d < 0 ? 'minus' : 'zero'}">${d > 0 ? '+' : ''}${d}${u ? ' ' + u : ''}</td></tr>`;
+        h += `<tr${k === 'travel' ? ' class="main"' : ''}><td class="l">${n}</td><td>${f(a[k])}</td><td>${f(b[k])}</td><td class="${d > 0 ? 'plus' : d < 0 ? 'minus' : 'zero'}">${d > 0 ? '+' : ''}${d}${u ? ' ' + u : ''}</td></tr>`;
       }
-      $('res').innerHTML = h;
+      $('res').innerHTML = h + '</tbody>';
       $('sA').innerHTML = '<b>Sety A:</b> ' + (a.sets.join(', ') || '–');
       $('sB').innerHTML = '<b>Sety B:</b> ' + (b.sets.join(', ') || '–');
       renderDoll('A', st.selA); renderDoll('B', st.selB);
-      scheduleList(); scheduleB();
+      scheduleList(); scheduleB(); equalize();
     };
 
     let lt; const scheduleList = () => { clearTimeout(lt); lt = setTimeout(renderList, 60); };
@@ -470,7 +539,7 @@
       const box = $('list'); box.style.display = 'block';
       const key = st.sort, body = $('lb');
       const what = st.mode === 'sets' ? 'celých setov' : st.mode === 'items' ? 'kusov a párov' : 'kusov aj setov';
-      if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček ' + what; body.innerHTML = '<i>V „Zoradiť“ vyber bonus (napr. Najviac zberu produktov, Najviac rýchlosti, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
+      if (!SORTNAME[key]) { $('lt').textContent = 'Rebríček ' + what; body.innerHTML = '<i class="muted">Hore v „Zoradiť podľa“ vyber bonus (napr. Najviac zberu produktov, Najrýchlejší pohyb po mape, Najviac XP), podľa ktorého sa má rebríček zostaviť.</i>'; return; }
       $('lt').textContent = 'Rebríček ' + what + ' – ' + SORTNAME[key];
       const L = st.L, unit = NOUNIT[key] ? '' : ' %', f = norm(st.filter);
       const base = compute(st.selB, L)[key] || 0;
@@ -508,25 +577,26 @@
       }
       cands.sort((a, b) => b.d - a.d || b.own - a.own);
       const show = cands.slice(0, st.limit);
-      let h = `<table><tr><th>#</th><th>Slot</th><th style="text-align:left">Predmet / set</th><th>Samotný kus / set</th><th>Zmena v B</th><th></th></tr>`;
+      let h = `<table class="tw list"><colgroup><col style="width:38px"><col style="width:110px"><col><col style="width:120px"><col style="width:110px"><col style="width:96px"></colgroup><thead><tr><th>#</th><th>Slot</th><th class="l">Predmet / set</th><th title="Bonus samotného kusu alebo celého setu">Sám / set</th><th>Zmena v B</th><th></th></tr></thead><tbody>`;
       show.forEach((c, n) => {
         if (c.kind === 'set') {
           const parts = Object.entries(c.combo).map(([sl, b]) => SN[sl] + ': ' + esc(((ItemManager.get(b * 1000) || {}).name || '').trim())).join(', ');
-          h += `<tr><td class="n">${n + 1}</td><td class="n"><b>Set</b> (${Object.keys(c.combo).length} ks)</td><td><div class="icrow">${Object.entries(c.combo).map(([sl, b]) => icon(b, lvlFor(b), 'sm')).join('')}</div><b>${esc(c.si.name)}</b><br><small style="color:#7a6a50">${parts}</small></td>` +
+          h += `<tr><td class="n">${n + 1}</td><td class="n"><b>Set</b> (${Object.keys(c.combo).length} ks)</td><td class="l"><div class="icrow">${Object.entries(c.combo).map(([sl, b]) => icon(b, lvlFor(b), 'sm')).join('')}</div><b>${esc(c.si.name)}</b><small class="parts">${parts}</small></td>` +
             `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
-            `<td class="n"><button class="put" data-combo="${esc(JSON.stringify(c.combo))}">➜ do B</button></td></tr>`;
+            `<td class="n"><button class="btn put" data-combo="${esc(JSON.stringify(c.combo))}">➜ do B</button></td></tr>`;
           return;
         }
         const si = c.i.set && CAT.setInfo[c.i.set];
         const warn = (c.i.cls && c.i.cls !== Character.charClass ? ' ⚠trieda' : '') + (c.i.sex && c.i.sex !== Character.charSex ? ' ⚠pohlavie' : '') + (c.i.lvl > L ? ' (lvl ' + c.i.lvl + ')' : '');
-        h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td><div class="nm">${icon(c.i.base, lvlFor(c.i.base))}<div>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</div></div></td>` +
+        h += `<tr><td class="n">${n + 1}</td><td class="n">${SN[c.slot]}</td><td class="l"><div class="nm">${icon(c.i.base, lvlFor(c.i.base))}<div>${esc(c.i.name)}${warn}${si ? '<br><small style="color:#7a6a50">' + esc(si.name) + '</small>' : ''}</div></div></td>` +
           `<td class="n">${c.own > 0 ? '+' + c.own + unit : '–'}</td><td class="n plus">+${c.d}${unit}</td>` +
-          `<td class="n"><button class="put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
+          `<td class="n"><button class="btn put" data-slot="${c.slot}" data-base="${c.i.base}">➜ do B</button></td></tr>`;
       });
-      h += '</table>';
+      h += '</tbody></table>';
       if (!cands.length) h = '<i>Nič by B v tomto bonuse nezlepšilo.</i>';
-      else if (cands.length > st.limit) h += `<div style="margin-top:6px"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
+      else if (cands.length > st.limit) h += `<div class="more"><button class="btn" id="twps-more">Zobraziť ďalších 40 (spolu ${cands.length})</button></div>`;
       body.innerHTML = h;
+      skinButtons(body);
       bindPops(body);
       const more = $('more'); if (more) more.onclick = () => { st.limit += 40; renderList(); };
     };
@@ -546,7 +616,7 @@
       for (const s in st.selB) { const it = ItemManager.get(st.selB[s].base * 1000); if (it && it.upgradeable) st.selB[s].lvl = v; }
       e.target.value = ''; renderB(); calc(); save(); };
     $('L').onchange = e => { st.L = Math.max(1, +e.target.value || Character.level); $('set').innerHTML = setOptions(st.sort, st.L); $('Aset').innerHTML = setOptions(st.sort, st.L); paintA(); renderB(); calc(); };
-    $('x').onclick = () => w.remove();
+    $('x').onclick = () => closeWin();
     $('Areset').onclick = () => { renderA(); calc(); };
     $('opt').onclick = () => { optimize('B'); };
     $('Aopt').onclick = () => { optimize('A'); };
@@ -576,11 +646,36 @@
     renderA(); renderB(); calc();
   }
 
+  // Ikona v rade posilňovačov (vedľa remeselnej kalkulačky, triedy a prémia), rovnaký rámik ako v hre.
+  const ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="43" height="43" viewBox="0 0 43 43">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc96"/><stop offset=".55" stop-color="#c29143"/><stop offset="1" stop-color="#6e4b1d"/></linearGradient></defs>
+    <rect x="20" y="8" width="3" height="25" rx="1" fill="url(#g)" stroke="#3b250c" stroke-width=".8"/>
+    <rect x="8" y="11" width="27" height="3" rx="1.4" fill="url(#g)" stroke="#3b250c" stroke-width=".8"/>
+    <circle cx="21.5" cy="8.5" r="2.6" fill="url(#g)" stroke="#3b250c" stroke-width=".8"/>
+    <path d="M10 14 L5.5 24 M10 14 L14.5 24 M33 14 L28.5 24 M33 14 L37.5 24" stroke="#3b250c" stroke-width=".9" fill="none"/>
+    <path d="M4.5 24 h11 a5.5 3.6 0 0 1 -11 0z M27.5 24 h11 a5.5 3.6 0 0 1 -11 0z" fill="url(#g)" stroke="#3b250c" stroke-width=".9"/>
+    <rect x="14" y="32.5" width="15" height="3.5" rx="1.5" fill="url(#g)" stroke="#3b250c" stroke-width=".9"/>
+    <text x="10" y="21.6" font-family="Georgia,serif" font-weight="bold" font-size="6" text-anchor="middle" fill="#3b250c">A</text>
+    <text x="33" y="21.6" font-family="Georgia,serif" font-weight="bold" font-size="6" text-anchor="middle" fill="#3b250c">B</text></svg>`);
   async function start() {
-    const b = document.createElement('div'); b.id = 'twps-btn'; b.textContent = '⚖ Sety'; b.title = 'Porovnanie setov';
-    b.onclick = async () => { b.textContent = '⏳'; try { await loadWardrobe(); open(); } catch (e) { alert('Porovnanie setov: ' + e.message); } b.textContent = '⚖ Sety'; };
-    document.body.appendChild(b);
-    if (!document.getElementById('twps-css')) { const st = document.createElement('style'); st.id = 'twps-css'; st.textContent = CSS; document.head.appendChild(st); }
+    installCss();
+    const host = document.createElement('div'); host.className = 'twps-launch'; host.setAttribute('data-hud', '');
+    host.innerHTML = `<div id="twps-btn" class="bag_item_mini" role="button" tabindex="0" title="Porovnanie setov" style="cursor:pointer"><img src="${ICON}" alt="" width="43" height="43"></div>`;
+    const b = host.querySelector('#twps-btn');
+    let busy = false;
+    b.onclick = async () => {
+      if (busy) return;
+      if (isOpen()) { closeWin(); return; }
+      busy = true; b.style.opacity = '.5';
+      try { await loadWardrobe(); open(); } catch (e) { alert('Porovnanie setov: ' + e.message); }
+      busy = false; b.style.opacity = '';
+    };
+    const mount = () => { const row = document.getElementById('buffbars'); if (!row) return false; const calc = row.querySelector('.twcalc-buff'); if (calc) calc.after(host); else row.prepend(host); return true; };
+    if (!mount()) {
+      b.classList.add('fixed'); b.innerHTML = '⚖ Sety'; document.body.appendChild(host);
+      const mo = new MutationObserver(() => { if (document.getElementById('buffbars')) { b.classList.remove('fixed'); b.innerHTML = `<img src="${ICON}" alt="" width="43" height="43">`; if (mount()) mo.disconnect(); } });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
   }
 
   const wait = setInterval(() => {

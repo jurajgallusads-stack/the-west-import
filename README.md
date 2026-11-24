@@ -96,7 +96,7 @@ Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry)
 
 ## Porovnanie setov (samostatný skript)
 
-[the-west-porovnanie-setov.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-porovnanie-setov.user.js): v hre pridá vpravo dole tlačidlo **⚖ Sety**, ktoré otvorí porovnanie dvoch oblečení pre zvolený level. Inštaluje sa rovnako cez Tampermonkey.
+[the-west-porovnanie-setov.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-porovnanie-setov.user.js): v hre pridá do radu posilňovačov (vedľa remeselnej kalkulačky) ikonu váh, ktorá otvorí porovnanie dvoch oblečení pre zvolený level. Otvára sa ako bežné okno hry (rám, presúvanie, zbalenie, zatvorenie) a má rovnaký vzhľad ako remeselná kalkulačka: herné tlačidlá, tabuľky a zarovnané polia. Bonus na zoradenie sa volí hore v „Zoradiť podľa“ a platí pre A aj B. Inštaluje sa rovnako cez Tampermonkey.
 
 - A aj B sú zobrazené ako panel výbavy v hre: obrázky predmetov v slotoch a žltá značka ▲ s úrovňou vylepšenia. Po prejdení myšou nad predmetom (v paneli aj v rebríčku) sa ukáže herná bublina so všetkými bonusmi. Kliknutím na slot v B skočíš na jeho výber.
 - **A sa dá upraviť:** okrem šatníka v ňom môžeš zvoliť ľubovoľný set (**Načítať celý set…**, aj taký, ktorý nemáš) alebo zmeniť ktorýkoľvek kus; **↺** vráti A na zvolené oblečenie zo šatníka.
