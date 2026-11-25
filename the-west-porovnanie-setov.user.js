@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.9.1
+// @version      1.9.2
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -186,6 +186,9 @@
 #twps.in-win{height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:12px 12px 8px}
 #twps.floating{position:fixed;z-index:100000;top:20px;left:50%;transform:translateX(-50%);width:1540px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .twps-win .tw2gui_window_inset{background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:0 0 !important}
+/* Jedno súvislé pozadie: pravý tieň okna hry (bg2) robí pri širokom okne v strede pruh, preto sa skryje a obsah má jeden roztiahnutý pergamen. */
+.twps-win .tw2gui_inner_window_bg2{display:none !important}
+#twps.in-win{background:#e6d2a4 ${img('window/window2_bg.jpg?6')} 0 0/100% 100% no-repeat}
 #twps::-webkit-scrollbar{width:11px}#twps::-webkit-scrollbar-track{background:rgba(90,60,20,.15);border-radius:6px}
 #twps::-webkit-scrollbar-thumb{background:#8b6b3f;border-radius:6px;border:2px solid #e8d6aa}
 #twps .gf{margin:0 0 10px;height:auto !important;position:relative}
