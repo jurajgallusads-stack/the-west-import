@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      2.1.0
+// @version      2.2.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -20,9 +20,12 @@
   const SN = { head: 'Hlava', neck: 'Krk', body: 'Telo', belt: 'Opasok', pants: 'Nohavice', foot: 'Topánky', right_arm: 'Zbraň (súboj)', left_arm: 'Zbraň (pevnosť)', animal: 'Zviera', yield: 'Produkt' };
   const ROWS = [
     ['travel', 'Celková rýchlosť pohybu', '%'], ['animal', 'Rýchlosť zvieraťa', '%'], ['speed', 'Rýchlosť z predmetov', '%'], ['ride', 'Jazda na koni (body z predmetov)', ''], ['experience', 'Skúsenosti (XP)', '%'],
-    ['drop', 'Zber produktov', '%'], ['luck', 'Šťastie', '%'], ['dollar', 'Peniaze', '%'], ['regen', 'Regenerácia', '%'], ['job', 'Pracovné body', '']
+    ['drop', 'Zber produktov', '%'], ['luck', 'Šťastie', '%'], ['dollar', 'Peniaze', '%'], ['regen', 'Regenerácia', '%'], ['job', 'Pracovné body (všetky práce)', ''],
+    ['build_lp', 'Stavba mesta – pracovné body', ''], ['hp', 'Životy (HP)', ''], ['fort_dmg', 'Boj – dmg na zásah (zbraň do pevnosti)', ''],
+    ['fort_atk', 'Boj – hodnota útoku (útočník)', ''], ['fort_defv', 'Boj – hodnota obrany (obranca)', ''], ['fort_res', 'Boj – odpor obrancu', ''],
+    ['fort_att', 'Boj – útok: dmg na výstrel', ''], ['fort_def', 'Boj – obrana: dmg × (1 + odpor/100)', '']
   ];
-  const SORTS = [['cat', 'Kategórie (podľa eventu)'], ['experience', 'Najviac XP'], ['travel', 'Najrýchlejší pohyb po mape (zviera × predmety)'], ['speed', 'Najviac rýchlosti z predmetov'], ['animal', 'Najrýchlejšie zviera'], ['drop', 'Najviac zberu produktov'], ['luck', 'Najviac šťastia'], ['dollar', 'Najviac peňazí'], ['job', 'Najviac pracovných bodov'], ['az', 'Abecedne']];
+  const SORTS = [['cat', 'Kategórie (podľa eventu)'], ['experience', 'Najviac XP'], ['travel', 'Najrýchlejší pohyb po mape (zviera × predmety)'], ['speed', 'Najviac rýchlosti z predmetov'], ['animal', 'Najrýchlejšie zviera'], ['drop', 'Najviac zberu produktov'], ['luck', 'Najviac šťastia'], ['dollar', 'Najviac peňazí'], ['job', 'Najviac pracovných bodov'], ['luckjob', 'Šťastie + pracovné body (min. hranica)'], ['fort_att', 'Boj o pevnosť – útok (najväčší dmg)'], ['fort_def', 'Boj o pevnosť – obrana (odpor + dmg)'], ['build_lp', 'Stavba mesta (pracovné body)'], ['az', 'Abecedne']];
   const EVENTS = [
     [/dod|dead/i, 'Day of the Dead'], [/oktoberfest/i, 'Oktoberfest'], [/easter/i, 'Veľká noc'], [/independence/i, 'Deň nezávislosti'],
     [/valentine/i, 'Valentín'], [/holiday|christmas|xmas|dedmoroz|santa/i, 'Vianoce'], [/birthday|b_day|bday/i, 'Narodeniny'],
@@ -60,17 +63,55 @@
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
 
   // ---------- výpočet (používa vlastnú kalkulačku hry) ----------
-  const NOUNIT = { job: 1, ride: 1, flexibility: 1 };
+  const NOUNIT = { fort_res: 1, job: 1, ride: 1, flexibility: 1, build_lp: 1, fort_att: 1, fort_def: 1, hp: 1, fort_dmg: 1, fort_atk: 1, fort_defv: 1 };
+  // Odvodené merania (hodnota pre prázdne oblečenie nie je 0, preto sa pri jednotlivých kusoch odpočíta)
+  const ABS = { hp: 1, fort_dmg: 1, fort_atk: 1, fort_defv: 1, fort_res: 1, fort_att: 1, fort_def: 1, build_lp: 1 };
+  const fmtV = (k, v) => (ABS[k] ? '' : v > 0 ? '+' : '') + v + (NOUNIT[k] ? '' : ' %');
+  const DERIVED = { travel: 1, luckjob: 1, fort_att: 1, fort_def: 1, build_lp: 1 };
+  const PARAM = { minJob: 300, dRef: 100 };
   let _baseRide = null;
   function baseRide() {
     if (_baseRide === null) { try { _baseRide = (CharacterSkills.skills.ride.points || 0) + (CharacterSkills.attributes.flexibility.points || 0); } catch (e) { _baseRide = 0; } }
     return _baseRide;
   }
+  // schopnosti postavy bez oblečenia: vlastné body + body vlastnosti (každý bod vlastnosti pridá +1 jej 5 schopnostiam)
+  const ATTR = { leadership: 'charisma', aim: 'dexterity', pitfall: 'dexterity', repair: 'dexterity', dodge: 'flexibility', hide: 'flexibility', health: 'strength', build: 'strength' };
+  let _baseSk = null;
+  function baseSkills() {
+    if (_baseSk) return _baseSk;
+    _baseSk = {};
+    for (const k in ATTR) { try { _baseSk[k] = (CharacterSkills.skills[k].points || 0) + (CharacterSkills.attributes[ATTR[k]].points || 0); } catch (e) { _baseSk[k] = 0; } }
+    return _baseSk;
+  }
+  // Súčty z predmetov (vrátane vlastností) → merania. Vzorce boja: InnoGames KB „Fort battle formulas“,
+  // stavba mesta: 3× Stavať + Opravy + Vodcovstvo (+ pracovné body pre všetky práce), robotník +5 %.
+  const FORTC = ['leadership', 'aim', 'dodge', 'hide', 'pitfall', 'health', 'dmgw', 'fo', 'fd', 'fds', 'fr'];
+  function derive(x, L) {
+    const b = baseSkills(), lp = (Character.lifePointPerHealthSkill || 10), lpb = (Character.lifePointPerHealthSkillBonus || 0);
+    const S = k => Math.max(0, (b[k] || 0) + (x[k] || 0));
+    const Ld = S('leadership'), hp = 100 + (L - 1) * lp + S('health') * (lp + lpb);
+    const beg = Math.max(0, 15 * (1 - L / 250));
+    const dmg = ((x.dmgw || 0) + (x.fds || 0)) * (1 + Ld / hp);
+    const atk = h => Math.pow(Ld, 0.5) + Math.pow(S('aim'), 0.5) + Math.pow(h, 0.6) + (x.fo || 0) + beg + 10;
+    const dfv = h => Math.pow(Ld, 0.5) + Math.pow(S('dodge'), 0.5) + Math.pow(h, 0.6) + (x.fd || 0) + beg + 10;
+    const res = h => 300 * h / hp + (x.fr || 0);
+    const R = PARAM.dRef;
+    const aA = atk(S('hide')), aD = atk(S('pitfall')), dD = dfv(S('pitfall'));
+    // útok: priemerný dmg na výstrel proti obrancovi s hodnotou obrany R
+    const fort_att = dmg * aA / (aA + R);
+    // obrana (obranca, Nastražiť pasce): dmg na výstrel × (1 + odpor / 100) – čo najväčší odpor aj dmg naraz
+    const fort_def = dmg * aD / (aD + R) * (1 + res(S('pitfall')) / 100);
+    const build_lp = (3 * S('build') + S('repair') + Ld + (x.job || 0)) * (Character.charClass === 'worker' ? 1.05 : 1);
+    const luckjob = (x.luck || 0) * 100 - Math.max(0, PARAM.minJob - (x.job || 0));
+    return { hp, fort_dmg: dmg, fort_atk: aA, fort_defv: dD, fort_res: res(S('pitfall')), fort_att, fort_def, build_lp, luckjob };
+  }
   function compute(sel, L) {
     const ch = { level: L };
-    const t = { animal: 0, speed: 0, experience: 0, drop: 0, luck: 0, dollar: 0, regen: 0, job: 0, ride: 0, flexibility: 0 };
+    const t = { animal: 0, speed: 0, experience: 0, drop: 0, luck: 0, dollar: 0, regen: 0, job: 0, ride: 0, flexibility: 0,
+      leadership: 0, aim: 0, dodge: 0, hide: 0, pitfall: 0, health: 0, build: 0, repair: 0, strength: 0, dexterity: 0, charisma: 0,
+      damage: 0, wdmg: 0, fort_offense: 0, fort_defense: 0, fort_offense_sector: 0, fort_defense_sector: 0, fort_damage_sector: 0, fort_resistance: 0 };
     const add = (x, e) => {
-      if (!x || !(x.key in t) || x.key === 'animal') return;
+      if (!x || !(x.key in t) || x.key === 'animal' || x.key === 'wdmg') return;
       if (x.key === 'job' && e && e.type === 'job' && e.job !== 'all') return;
       t[x.key] += Number(x.value) || 0;
     };
@@ -81,6 +122,7 @@
       const bx = new west.item.BonusExtractor(ch, it.item_level || 0);
       for (const e of ((it.bonus && it.bonus.item) || [])) add(bx.getExportValue(e), e);
       if (it.speed) t.animal = Math.max(t.animal, 1 / it.speed - 1);
+      if (s === 'left_arm' && it.damage) t.wdmg = ((+it.damage.damage_min || 0) + (+it.damage.damage_max || 0)) / 2;
       if (it.set) cnt[it.set] = (cnt[it.set] || 0) + 1;
     }
     const sets = [];
@@ -91,20 +133,35 @@
       for (const e of (s.getMergedStages(cnt[k]) || [])) add(bx0.getExportValue(e), e);
     }
     const o = {};
-    for (const k in t) o[k] = NOUNIT[k] ? Math.round(t[k]) : Math.round(t[k] * 1000) / 10;
-    o.ride = Math.round(t.ride + t.flexibility); delete o.flexibility;
+    for (const k of ['animal', 'speed', 'experience', 'drop', 'luck', 'dollar', 'regen']) o[k] = Math.round(t[k] * 1000) / 10;
+    o.job = Math.round(t.job);
+    o.ride = Math.round(t.ride + t.flexibility);
     // Pohyb po mape (wiki The West): (100 % + zviera + 1 % za bod jazdy) × (100 % + rýchlosť z predmetov)
     o.travel = Math.round(((1 + t.animal + (baseRide() + t.ride + t.flexibility) / 100) * (1 + t.speed) - 1) * 1000) / 10;
+    // súčty z predmetov pre boj a stavbu (vlastnosť pridá bod každej svojej schopnosti)
+    const x = { leadership: t.leadership + t.charisma, aim: t.aim + t.dexterity, pitfall: t.pitfall + t.dexterity, repair: t.repair + t.dexterity,
+      dodge: t.dodge + t.flexibility, hide: t.hide + t.flexibility, health: t.health + t.strength, build: t.build + t.strength,
+      dmgw: t.wdmg + t.damage, fo: t.fort_offense + t.fort_offense_sector, fd: t.fort_defense + t.fort_defense_sector, fds: t.fort_damage_sector, fr: t.fort_resistance,
+      job: t.job, luck: t.luck };
+    o.x = x;
+    const d = derive(x, L);
+    for (const k of ['hp', 'fort_dmg', 'fort_atk', 'fort_defv', 'fort_att', 'build_lp']) o[k] = Math.round(d[k]);
+    o.fort_def = Math.round(d.fort_def);
+    o.fort_res = Math.round(d.fort_res * 10) / 10;
+    o.luckjob = Math.round(d.luckjob * 10) / 10;
     o.sets = sets;
     return o;
   }
 
+  const _empty = {};
+  const clearValCaches = () => { for (const o of [single, setCache, _empty]) for (const k in o) delete o[k]; };
+  const emptyVal = L => _empty[L + '|' + PARAM.minJob] || (_empty[L + '|' + PARAM.minJob] = compute({}, L));
   // hodnota jedného predmetu (na zoradenie zoznamov)
   const single = {};
   function itemValue(base, key, L) {
     const ck = base + '|' + L; let v = single[ck];
     if (!v) { const sel = {}; const it = ItemManager.get(base * 1000); sel[it.type] = { base, lvl: 0 }; v = single[ck] = compute(sel, L); }
-    return key === 'travel' ? Math.round((v.travel - baseRide()) * 10) / 10 : (v[key] || 0);
+    return DERIVED[key] ? Math.round(((v[key] || 0) - (emptyVal(L)[key] || 0)) * 10) / 10 : (v[key] || 0);
   }
 
   // hodnota celého setu (všetky kusy, ktoré sa zmestia do slotov), na zoradenie setov
@@ -116,9 +173,9 @@
       for (const id of (si ? si.items : [])) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (it && SL.includes(it.type) && !sel[it.type]) sel[it.type] = { base: it.item_base_id || Math.floor(it.item_id / 1000), lvl: 0 }; }
       v = setCache[ck] = compute(sel, L);
     }
-    return key === 'travel' ? Math.round((v.travel - baseRide()) * 10) / 10 : (v[key] || 0);
+    return DERIVED[key] ? Math.round(((v[key] || 0) - (emptyVal(L)[key] || 0)) * 10) / 10 : (v[key] || 0);
   }
-  const SORTNAME = { experience: 'XP', travel: 'celková rýchlosť pohybu', ride: 'jazda na koni', speed: 'rýchlosť z predmetov', animal: 'rýchlosť zvieraťa', drop: 'zber produktov', luck: 'šťastie', dollar: 'peniaze', job: 'pracovné body' };
+  const SORTNAME = { experience: 'XP', travel: 'celková rýchlosť pohybu', ride: 'jazda na koni', speed: 'rýchlosť z predmetov', animal: 'rýchlosť zvieraťa', drop: 'zber produktov', luck: 'šťastie', dollar: 'peniaze', job: 'pracovné body', luckjob: 'šťastie pri min. pracovných bodoch', fort_att: 'boj – útok', fort_def: 'boj – obrana', build_lp: 'stavba mesta' };
   // ---------- odkiaľ sa predmet dá získať ----------
   // 🎒 mám (inventár alebo na sebe) · 🏪 predáva obchodník v meste · 🎉 event (Black/Western Friday, Oktoberfest,
   // Veľká noc, Vianoce, Day of the Dead…) · 🏆 špeciálne (úlohy, súťaže na fórach, staré akcie a ostatné).
@@ -203,6 +260,7 @@
   // Vzhľad ako remeselná kalkulačka: okno hry, skupinové rámy, herné tlačidlá a tabuľky z obrázkov hry.
   const CDN = () => String((window.Game && Game.cdnURL) || 'https://westcz.innogamescdn.com').replace(/\/$/, '');
   const CSS = () => { const img = p => `url("${CDN()}/images/tw2gui/${p}")`; return `
+#twps [hidden]{display:none !important}
 #twps{font:12px Arial,Verdana,sans-serif;color:#2b1d0e;line-height:1.3;text-align:left}
 #twps.in-win{height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:12px 12px 8px}
 #twps.floating{position:fixed;z-index:100000;top:20px;left:50%;transform:translateX(-50%);width:1480px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
@@ -384,7 +442,7 @@
     closeWin();
     installCss();
     const saved = lsGet('twps_state', {});
-    loadOwned(); if (saved.src) Object.assign(SRC, saved.src);
+    loadOwned(); if (saved.src) Object.assign(SRC, saved.src); if (saved.minJob != null) { PARAM.minJob = +saved.minJob || 0; clearValCaches(); }
     const st = { L: Character.level, A: saved.A || '(práve oblečené)', selA: {}, selB: saved.selB || {}, sort: saved.sort || 'cat', filter: '', mode: saved.mode || 'sets', slotF: 'all', candLvl: 0, limit: 40 };
 
     const w = document.createElement('div'); w.id = 'twps';
@@ -395,6 +453,7 @@
     w.innerHTML = `<div class="pnl top">` + `<div class="tb">
     <label>Level <input type="number" id="twps-L" min="1" max="250" value="${st.L}"></label>
     <label>Zoradiť podľa <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    <label id="twps-minjobw" title="Šťastie sa maximalizuje len zo zostáv, ktoré majú aspoň toľko pracovných bodov (všetky práce) z oblečenia" ${st.sort === 'luckjob' ? '' : 'hidden'}>min. pracovných bodov <input type="number" id="twps-minjob" min="0" step="10" value="${PARAM.minJob}"></label>
     <span class="srcf"><b>B berie predmety:</b>${[['inv', '🎒 môj inventár'], ['shop', '🏪 obchod v meste'], ['event', '🎉 eventy'], ['special', '🏆 špeciálne']].map(([k, n]) => `<label title="${{ inv: 'Veci, ktoré máš v inventári alebo na sebe', shop: 'Bežne na kúpu u obchodníkov v mestách', event: 'Z eventov: Black/Western Friday, Oktoberfest, Veľká noc, Vianoce, Day of the Dead, žatva…', special: 'Za špeciálne úlohy, súťaže na fórach, staré akcie a ostatné' }[k]}"><input type="checkbox" data-src="${k}" ${SRC[k] ? 'checked' : ''}> ${n}</label>`).join('')}</span>
     <button class="x" id="twps-x" hidden></button></div></div>` + `
 <div class="cols">
@@ -422,7 +481,7 @@
 ${panel(`<h4>Porovnanie A a B</h4>
 <table class="tw res" id="twps-res"></table>
 <div class="sets"><div id="twps-sA"></div><div id="twps-sB"></div></div>
-<div class="note">Počíta sa kalkulačkou hry (bonusy na level, vylepšenia ★1–★5, sety podľa počtu kusov). Celková rýchlosť pohybu = (100 % + zviera + 1 % za bod jazdy) × (100 % + rýchlosť z predmetov), bez prémie a dočasných bonusov. 🎒 = máš ho, 🏪 = obchod v meste, 🎉 = event, 🏆 = špeciálne (úlohy, súťaže, staré akcie). ⚠ = predmet je pre inú triedu alebo pohlavie. (lvl X) = vyšší level, než je zadaný.</div>`)}
+<div class="note">Počíta sa kalkulačkou hry (bonusy na level, vylepšenia ★1–★5, sety podľa počtu kusov). Celková rýchlosť pohybu = (100 % + zviera + 1 % za bod jazdy) × (100 % + rýchlosť z predmetov), bez prémie a dočasných bonusov. Boj o pevnosť podľa vzorcov InnoGames: útok = Vodcovstvo<sup>0,5</sup> + Mierenie<sup>0,5</sup> + Skrývanie<sup>0,6</sup> (obranca Nastražiť pasce) + bonusy, dmg = (zbraň do pevnosti + bonus poškodenia) × (1 + Vodcovstvo / životy), odpor = 300 × Skrývanie (pasce) / životy + bonus. „Útok“ = priemerný dmg na výstrel proti súperovi s obranou 100, „obrana“ = dmg na výstrel obrancu × (1 + odpor / 100), teda čo najväčší odpor aj dmg naraz. Stavba mesta = 3 × Stavať + Opravy + Vodcovstvo + pracovné body (robotník +5 %). Počíta sa so schopnosťami tvojej postavy bez oblečenia. 🎒 = máš ho, 🏪 = obchod v meste, 🎉 = event, 🏆 = špeciálne (úlohy, súťaže, staré akcie). ⚠ = predmet je pre inú triedu alebo pohlavie. (lvl X) = vyšší level, než je zadaný.</div>`)}
 <div id="twps-list" style="display:none">${panel(`<h4 id="twps-lt">Rebríček</h4>
   <div class="lc">
     <label>Slot <select id="twps-ls"><option value="all">všetky</option>${SL.map(s => `<option value="${s}">${SN[s]}</option>`).join('')}</select></label>
@@ -457,7 +516,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
       const m = Math.max(...hs.map(h => h.offsetHeight)); hs.forEach(h => h.style.minHeight = m + 'px');
     });
 
-    const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort, mode: st.mode, src: SRC });
+    const save = () => lsSet('twps_state', { A: st.A, selB: st.selB, sort: st.sort, mode: st.mode, src: SRC, minJob: PARAM.minJob });
 
     const paintSlotA = s => {
       const p = st.selA[s]; const it = p && ItemManager.get(p.base * 1000);
@@ -529,16 +588,25 @@ ${panel(`<h4>Porovnanie A a B</h4>
       // samostatný kus v jednom slote alebo k kusov jedného setu v k slotoch. Najlepšie rozdelenie 10 slotov nájde
       // dynamické programovanie cez všetky podmnožiny slotov (3^10 krokov), teda naozaj najlepšiu kombináciu.
       log.innerHTML = 'Počítam všetky kusy a sety…'; await new Promise(r => setTimeout(r, 0));
-      const comps = key === 'travel' ? [['animal', 'ride'], ['speed']] : [[key]];
-      const vecOf = o => comps.map(c => c.reduce((a, k) => a + (o[k] || 0), 0));
+      // Zložky, ktoré sa medzi predmetmi sčítavajú; nelineárne merania (rýchlosť pohybu, boj, šťastie s hranicou)
+      // sa počítajú z nich a hľadanie ide opakovane podľa sklonu (váh) v práve nájdenej zostave.
+      const NL = {
+        travel: { v: o => [o.animal, o.ride, o.speed], f: v => (100 + v[0] + baseRide() + v[1]) * (100 + v[2]) / 100 - 100 },
+        luckjob: { v: o => [o.x.luck * 100, o.x.job], f: v => v[0] - Math.max(0, PARAM.minJob - v[1]) },
+        fort_att: { v: o => FORTC.map(k => o.x[k] || 0), f: v => derive(Object.fromEntries(FORTC.map((k, i) => [k, v[i]])), L).fort_att },
+        fort_def: { v: o => FORTC.map(k => o.x[k] || 0), f: v => derive(Object.fromEntries(FORTC.map((k, i) => [k, v[i]])), L).fort_def }
+      }[key];
+      const vecOf = NL ? NL.v : (o => [o[key] || 0]);
+      const e0 = vecOf(compute({}, L));
+      const rel = o => vecOf(o).map((x, i) => x - e0[i]);
       const vcache = {};
-      const ownVec = (sl, b, lv) => { const ck = sl + '|' + b + '|' + lv; return vcache[ck] || (vcache[ck] = vecOf(compute({ [sl]: { base: b, lvl: lv } }, L))); };
-      const pos = v => v.some(x => x > 0);
+      const ownVec = (sl, b, lv) => { const ck = sl + '|' + b + '|' + lv; return vcache[ck] || (vcache[ck] = rel(compute({ [sl]: { base: b, lvl: lv } }, L))); };
+      const nz = v => v.some(x => Math.abs(x) > 1e-9);
       const NS = SL.length, idx = {}; SL.forEach((sl, i) => idx[sl] = i);
       const singlesBy = SL.map(() => []);
       for (const sl of SL) for (const i of CAT.bySlot[sl]) {
         if (!okIt(ItemManager.get(i.base * 1000))) continue;
-        const v = ownVec(sl, i.base, lvlOf(i.base)); if (pos(v)) singlesBy[idx[sl]].push({ b: i.base, v });
+        const v = ownVec(sl, i.base, lvlOf(i.base)); if (nz(v)) singlesBy[idx[sl]].push({ b: i.base, v });
       }
       const sets = []; let nSet = 0;
       for (const si of Object.values(CAT.setInfo)) {
@@ -546,13 +614,13 @@ ${panel(`<h4>Porovnanie A a B</h4>
         for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!okIt(it) || !SL.includes(it.type)) continue; const b = it.item_base_id || Math.floor(it.item_id / 1000); (opts[it.type] = opts[it.type] || []).includes(b) || opts[it.type].push(b); }
         const slots = Object.keys(opts); if (slots.length < 2) continue;
         const full = {}; for (const sl of slots) full[sl] = { base: opts[sl][0], lvl: 0 };
-        if (!pos(vecOf(compute(full, L))) && !slots.some(sl => opts[sl].some(b => pos(ownVec(sl, b, lvlOf(b)))))) continue;
+        if (!nz(rel(compute(full, L))) && !slots.some(sl => opts[sl].some(b => nz(ownVec(sl, b, lvlOf(b)))))) continue;
         // bonus setu za k kusov = hodnota k kusov − ich vlastné bonusy
         const SB = [null, null];
         for (let k = 2; k <= slots.length; k++) {
-          const sel = {}; let sum = comps.map(() => 0);
+          const sel = {}; let sum = e0.map(() => 0);
           for (const sl of slots.slice(0, k)) { sel[sl] = { base: opts[sl][0], lvl: 0 }; sum = sum.map((x, i) => x + ownVec(sl, opts[sl][0], 0)[i]); }
-          SB[k] = vecOf(compute(sel, L)).map((x, i) => x - sum[i]);
+          SB[k] = rel(compute(sel, L)).map((x, i) => x - sum[i]);
         }
         sets.push({ name: si.name, slots, opts, SB });
         if (++nSet % 40 === 0) { log.innerHTML = 'Počítam sety… ' + nSet; await new Promise(r => setTimeout(r, 0)); }
@@ -585,11 +653,22 @@ ${panel(`<h4>Porovnanie A a B</h4>
       const start = compute(S, L)[key] || 0;
       let bestSol = null;
       const tryW = w => { const r = solve(w); r.val = compute(r.sel, L)[key] || 0; if (!bestSol || r.val > bestSol.val) bestSol = r; return r; };
-      if (key === 'travel') {
-        // súčin (100 % + zviera + jazda) × (100 % + rýchlosť): opakovane sa váhy nastavia podľa sklonu v práve nájdenej zostave
-        for (const w of [[1, 0], [0, 1], [1, 1], [1, 3], [3, 1]]) tryW(w);
-        let w = [1, 1];
-        for (let it = 0; it < 10; it++) { const r = tryW(w); const v = vecOf(compute(r.sel, L)); const nw = [100 + v[1], 100 + v[0]]; if (Math.abs(nw[0] - w[0]) + Math.abs(nw[1] - w[1]) < 1e-6) break; w = nw; }
+      if (NL) {
+        const D = e0.length;
+        const grad = v => { const f0 = NL.f(v); return v.map((x, i) => { const h = Math.max(1, Math.abs(x) * 0.01); const u = v.slice(); u[i] += h; return (NL.f(u) - f0) / h; }); };
+        const absV = sel => vecOf(compute(sel, L));
+        const starts = [e0.map(() => 1), grad(e0), grad(absV(S))];
+        for (let i = 0; i < D; i++) starts.push(e0.map((_, j) => j === i ? 1 : 0));
+        if (key === 'luckjob') for (const l of [0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2, 5]) starts.push([1, l]);
+        let n = 0;
+        for (const w0 of starts) {
+          let w = w0;
+          for (let it = 0; it < 8; it++) {
+            const r = tryW(w); const nw = grad(absV(r.sel));
+            if (nw.every((x, i) => Math.abs(x - w[i]) < 1e-9)) break; w = nw;
+          }
+          if (++n % 4 === 0) { log.innerHTML = 'Hľadám najlepšiu kombináciu… ' + Math.round(100 * n / starts.length) + ' %'; await new Promise(r => setTimeout(r, 0)); }
+        }
       } else tryW([1]);
       // ---- 2) Doladenie: výmeny jedného kusu alebo celého setu (zachytí zaokrúhlenia a nelineárne prípady) ----
       const cur = bestSol.val >= start ? Object.assign({}, bestSol.sel) : Object.assign({}, S);
@@ -614,8 +693,8 @@ ${panel(`<h4>Porovnanie A a B</h4>
       for (const k in cnt) if (cnt[k] >= 2) { const s = west.storage.ItemSetManager.get(k); desc.push('<b>' + esc(((s && s.name) || k).trim()) + '</b> ' + cnt[k] + ' ks'); }
       for (const sl of SL) { const p = S[sl]; const it = p && ItemManager.get(p.base * 1000); if (it && !(it.set && cnt[it.set] >= 2)) desc.push(SN[sl] + ': ' + esc(nameOf(p.base))); }
       log.innerHTML = end > start + 0.05
-        ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Najlepšia zostava: ` + desc.join(', ') + '. <i>Prepočítané všetky kusy aj všetky sety naraz (aj čiastočné sety a ich kombinácie). Vynecháva kusy pre iný level, triedu či pohlavie.</i>' + (own ? ' <i>Len veci z inventára a z toho, čo máš na sebe, s ich vylepšením.</i>' : '')
-        : `<b>${side} je už najlepšia možná zostava pre ${SORTNAME[key]} (+${end}${unit}).</b>`;
+        ? `<b>Hotovo – ${SORTNAME[key]}: z ${fmtV(key, start)} na ${fmtV(key, end)}.</b> Najlepšia zostava: ` + desc.join(', ') + '. <i>Prepočítané všetky kusy aj všetky sety naraz (aj čiastočné sety a ich kombinácie). Vynecháva kusy pre iný level, triedu či pohlavie.</i>' + (own ? ' <i>Len veci z inventára a z toho, čo máš na sebe, s ich vylepšením.</i>' : '')
+        : `<b>${side} je už najlepšia možná zostava pre ${SORTNAME[key]} (${fmtV(key, end)}).</b>`;
       optRunning = false; btn.disabled = false;
     };
     const fillB = () => { for (const s of SL) $('B-' + s).innerHTML = optionsB(s); };
@@ -640,7 +719,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
       let h = `<colgroup><col style="width:34%"><col style="width:22%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th class="l">Bonus (level ${st.L})</th><th>A – moje</th><th>B – na výber</th><th>Rozdiel B − A</th></tr></thead><tbody>`;
       for (const [k, n, u] of ROWS) {
         const d = Math.round((b[k] - a[k]) * 10) / 10;
-        const f = v => v ? (k === 'job' ? v : '+' + v + (u ? ' ' + u : '')) : '–';
+        const f = v => v ? (ABS[k] ? v + (u ? ' ' + u : '') : k === 'job' ? v : '+' + v + (u ? ' ' + u : '')) : '–';
         h += `<tr${k === 'travel' ? ' class="main"' : ''}><td class="l">${n}</td><td>${f(a[k])}</td><td>${f(b[k])}</td><td class="${d > 0 ? 'plus' : d < 0 ? 'minus' : 'zero'}">${d > 0 ? '+' : ''}${d}${u ? ' ' + u : ''}</td></tr>`;
       }
       $('res').innerHTML = h + '</tbody>';
@@ -719,7 +798,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
     };
 
     $('A').onchange = e => { st.A = e.target.value; renderA(); calc(); save(); };
-    $('sort').onchange = e => { st.sort = e.target.value; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L, true); $('Aset').innerHTML = setOptions(st.sort, st.L); renderB(); renderList(); save(); };
+    $('sort').onchange = e => { st.sort = e.target.value; $('minjobw').hidden = st.sort !== 'luckjob'; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L, true); $('Aset').innerHTML = setOptions(st.sort, st.L); renderB(); renderList(); save(); };
     let ft; $('f').oninput = e => { clearTimeout(ft); ft = setTimeout(() => { st.filter = e.target.value; st.limit = 40; renderB(); renderList(); }, 250); };
     $('set').onchange = e => {
       const si = CAT.setInfo[e.target.value]; if (!si) return;
@@ -736,6 +815,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
     $('x').onclick = () => closeWin();
     $('Areset').onclick = () => { renderA(); calc(); };
     $('opt').onclick = () => { optimize('B'); };
+    $('minjob').onchange = e => { PARAM.minJob = Math.max(0, +e.target.value || 0); clearValCaches(); $('set').innerHTML = setOptions(st.sort, st.L, true); $('Aset').innerHTML = setOptions(st.sort, st.L); renderB(); calc(); save(); };
     w.querySelectorAll('.srcf input').forEach(cb => cb.onchange = () => { SRC[cb.dataset.src] = cb.checked; st.limit = 40; $('set').innerHTML = setOptions(st.sort, st.L, true); renderB(); renderList(); save(); });
     $('Aopt').onclick = () => { optimize('A'); };
     $('Aset').onchange = e => {
