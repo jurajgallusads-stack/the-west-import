@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.9.2
+// @version      1.9.3
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -184,7 +184,7 @@
   const CSS = () => { const img = p => `url("${CDN()}/images/tw2gui/${p}")`; return `
 #twps{font:12px Arial,Verdana,sans-serif;color:#2b1d0e;line-height:1.3;text-align:left}
 #twps.in-win{height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:12px 12px 8px}
-#twps.floating{position:fixed;z-index:100000;top:20px;left:50%;transform:translateX(-50%);width:1540px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#twps.floating{position:fixed;z-index:100000;top:20px;left:50%;transform:translateX(-50%);width:1480px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .twps-win .tw2gui_window_inset{background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:0 0 !important}
 /* Jedno súvislé pozadie: pravý tieň okna hry (bg2) robí pri širokom okne v strede pruh, preto sa skryje a obsah má jeden roztiahnutý pergamen. */
 .twps-win .tw2gui_inner_window_bg2{display:none !important}
@@ -380,7 +380,8 @@ ${panel(`<h4>Porovnanie A a B</h4>
       const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
       gwin = wman.open('twps', 'Porovnanie setov', 'noreload twps-win');
       try { gwin.setMiniTitle('Porovnanie setov'); } catch (e) { }
-      gwin.setSize(Math.max(980, Math.min(1560, vw - 16)), Math.max(560, Math.min(1000, vh - 70)));
+      // Rám okna hry skladá hra zo 4 obrázkov po 748 × 473 px; širšie alebo vyššie okno má v strede rámu medzeru (pruh).
+      gwin.setSize(Math.max(980, Math.min(1490, vw - 16)), Math.max(560, Math.min(940, vh - 70)));
       try { gwin.center(); } catch (e) { }
       w.classList.add('in-win');
       gwin.appendToContentPane(w);
