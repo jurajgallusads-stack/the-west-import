@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.9.3
+// @version      1.9.4
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -325,6 +325,35 @@
     if (gwin) { const g = gwin; gwin = null; try { (wman.getById && wman.getById('twps') || g).destroy(); } catch (e) { } }
     const old = document.getElementById('twps'); if (old) old.remove();
   }
+  // Rám a titulok okna skladá hra z dvoch polovíc; v strede sa ich konce stretnú a vznikne zárez.
+  // Na stred hornej, dolnej a bočných líšt a titulku sa položí kúsok hladnej líšty z toho istého obrázka.
+  function patchSeams() {
+    const win = document.querySelector('.twps-win'); if (!win) return;
+    win.querySelectorAll('.twps-seam').forEach(e => e.remove());
+    const part = (sel) => win.querySelector(':scope > .tw2gui_window_border.' + sel);
+    const tl = part('tw2gui_bg_tl'), tr = part('tw2gui_bg_tr'), bl = part('tw2gui_bg_bl'), br = part('tw2gui_bg_br');
+    const add = (after, css) => { if (!after) return; const d = document.createElement('div'); d.className = 'twps-seam';
+      d.style.cssText = 'position:absolute;pointer-events:none;background-repeat:no-repeat;z-index:3;' + css; after.after(d); };
+    const last = [...win.querySelectorAll(':scope > .tw2gui_window_border')].pop();
+    const img = el => el ? getComputedStyle(el).backgroundImage : 'none';
+    add(last, `top:0;left:calc(50% - 70px);width:140px;height:32px;background-image:${img(tl)};background-position:-150px 0`);
+    add(last, `bottom:0;left:calc(50% - 70px);width:140px;height:32px;background-image:${img(bl)};background-position:-150px 100%`);
+    // Boky: rám je pri vnútornom okraji priehľadný, preto sa pod neho dá aj kúsok pozadia okna na rovnakom mieste.
+    const inset = win.querySelector('.tw2gui_window_inset'); const wr = win.getBoundingClientRect(), ir = inset ? inset.getBoundingClientRect() : null;
+    const ibg = inset ? getComputedStyle(inset).backgroundImage : 'none';
+    for (const side of ['left', 'right']) {
+      const pw = 32, ph = 140, px = side === 'left' ? 0 : wr.width - pw, py = Math.round(wr.height / 2 - ph / 2);
+      const under = ir ? `, ${ibg}` : '';
+      const pos = side === 'left' ? '0 -60px' : '100% -60px';
+      const upos = ir ? `, ${Math.round(ir.left - wr.left - px)}px ${Math.round(ir.top - wr.top - py)}px` : '';
+      const usize = ir ? `auto, ${Math.round(ir.width)}px ${Math.round(ir.height)}px` : 'auto';
+      add(last, `left:${px}px;top:${py}px;width:${pw}px;height:${ph}px;background-image:${img(side === 'left' ? tl : tr)}${under};background-position:${pos}${upos};background-size:${usize}`);
+    }
+    const tit = win.querySelector('.tw2gui_inner_window_title'), tleft = tit && tit.querySelector('.tw2gui_inner_window_title_left'), tright = tit && tit.querySelector('.tw2gui_inner_window_title_right');
+    if (tleft && tright) { const cs = getComputedStyle(tleft); const d = document.createElement('div'); d.className = 'twps-seam';
+      d.style.cssText = `position:absolute;pointer-events:none;bottom:${cs.bottom};height:${cs.height};left:calc(50% - 70px);width:140px;background-image:${cs.backgroundImage};background-position:-300px 100%;background-repeat:no-repeat`;
+      tright.after(d); }
+  }
   function open() {
     if (!CAT) buildCatalog();
     closeWin();
@@ -386,6 +415,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
       w.classList.add('in-win');
       gwin.appendToContentPane(w);
       try { gwin.addEventListener(window.TWE ? TWE('WINDOW_DESTROY') : 'WINDOW_DESTROY', () => { gwin = null; }); } catch (e) { }
+      try { patchSeams(); } catch (e) { }
     } else { w.classList.add('floating'); document.body.appendChild(w); }
     // Písanie do polí nesmie spúšťať klávesové skratky hry.
     for (const ev of ['keydown', 'keyup', 'keypress']) w.addEventListener(ev, e => e.stopPropagation());
