@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.9.4
+// @version      2.0.0
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -497,49 +497,98 @@ ${panel(`<h4>Porovnanie A a B</h4>
       const okIt = it => it && (!own || (it.item_base_id || Math.floor(it.item_id / 1000)) in own) && !(it.level > L) && !(it.characterClass && it.characterClass !== Character.charClass) && !(it.characterSex && it.characterSex !== Character.charSex);
       const lvlOf = b => { if (own) return own[b] || 0; const it = ItemManager.get(b * 1000); return it && it.upgradeable ? st.candLvl : 0; };
       const nameOf = b => ((ItemManager.get(b * 1000) || {}).name || '').trim();
-      // kandidáti: kusy s bonusom (samé alebo cez set) + celé sety (pri viacerých zbraniach všetky kombinácie)
-      const singles = [];
+      // ---- 1) Presné hľadanie: všetky kusy aj všetky sety naraz (delenie 10 slotov medzi sety a samostatné kusy) ----
+      // Bonus setu závisí len od počtu kusov, nie od toho, ktoré to sú; preto sa dá zostava rozložiť na „skupiny slotov“:
+      // samostatný kus v jednom slote alebo k kusov jedného setu v k slotoch. Najlepšie rozdelenie 10 slotov nájde
+      // dynamické programovanie cez všetky podmnožiny slotov (3^10 krokov), teda naozaj najlepšiu kombináciu.
+      log.innerHTML = 'Počítam všetky kusy a sety…'; await new Promise(r => setTimeout(r, 0));
+      const comps = key === 'travel' ? [['animal', 'ride'], ['speed']] : [[key]];
+      const vecOf = o => comps.map(c => c.reduce((a, k) => a + (o[k] || 0), 0));
+      const vcache = {};
+      const ownVec = (sl, b, lv) => { const ck = sl + '|' + b + '|' + lv; return vcache[ck] || (vcache[ck] = vecOf(compute({ [sl]: { base: b, lvl: lv } }, L))); };
+      const pos = v => v.some(x => x > 0);
+      const NS = SL.length, idx = {}; SL.forEach((sl, i) => idx[sl] = i);
+      const singlesBy = SL.map(() => []);
       for (const sl of SL) for (const i of CAT.bySlot[sl]) {
         if (!okIt(ItemManager.get(i.base * 1000))) continue;
-        if (itemValue(i.base, key, L) > 0 || (i.set && setValue(i.set, key, L) > 0)) singles.push([sl, i.base]);
+        const v = ownVec(sl, i.base, lvlOf(i.base)); if (pos(v)) singlesBy[idx[sl]].push({ b: i.base, v });
       }
-      const setCombos = [];
+      const sets = []; let nSet = 0;
       for (const si of Object.values(CAT.setInfo)) {
         const opts = {};
-        for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!okIt(it) || !SL.includes(it.type)) continue; (opts[it.type] = opts[it.type] || []).push(it.item_base_id || Math.floor(it.item_id / 1000)); }
+        for (const id of si.items) { const it = ItemManager.get(id * 1000) || ItemManager.get(id); if (!okIt(it) || !SL.includes(it.type)) continue; const b = it.item_base_id || Math.floor(it.item_id / 1000); (opts[it.type] = opts[it.type] || []).includes(b) || opts[it.type].push(b); }
         const slots = Object.keys(opts); if (slots.length < 2) continue;
-        if (setValue(si.key, key, L) <= 0 && !slots.some(sl => opts[sl].some(b => itemValue(b, key, L) > 0))) continue;
-        let combos = [{}];
-        for (const sl of slots) { const nx = []; for (const c of combos) for (const b of opts[sl]) nx.push(Object.assign({}, c, { [sl]: b })); combos = nx.slice(0, 16); }
-        for (const c of combos) setCombos.push([si.name, c]);
-      }
-      const start = compute(S, L)[key] || 0, steps = [];
-      for (let n = 0; n < 40; n++) {
-        const base = compute(S, L)[key] || 0; let best = null;
-        for (const [sl, b] of singles) {
-          if (S[sl] && S[sl].base === b) continue;
-          const sel = Object.assign({}, S); sel[sl] = { base: b, lvl: lvlOf(b) };
-          const d = (compute(sel, L)[key] || 0) - base;
-          if (d > 0.05 && (!best || d > best.d + 1e-9)) best = { d, ch: { [sl]: b }, label: SN[sl] + ': ' + nameOf(b) };
+        const full = {}; for (const sl of slots) full[sl] = { base: opts[sl][0], lvl: 0 };
+        if (!pos(vecOf(compute(full, L))) && !slots.some(sl => opts[sl].some(b => pos(ownVec(sl, b, lvlOf(b)))))) continue;
+        // bonus setu za k kusov = hodnota k kusov − ich vlastné bonusy
+        const SB = [null, null];
+        for (let k = 2; k <= slots.length; k++) {
+          const sel = {}; let sum = comps.map(() => 0);
+          for (const sl of slots.slice(0, k)) { sel[sl] = { base: opts[sl][0], lvl: 0 }; sum = sum.map((x, i) => x + ownVec(sl, opts[sl][0], 0)[i]); }
+          SB[k] = vecOf(compute(sel, L)).map((x, i) => x - sum[i]);
         }
-        for (const [nm, c] of setCombos) {
-          const sls = Object.keys(c); if (sls.every(sl => S[sl] && S[sl].base === c[sl])) continue;
-          const sel = Object.assign({}, S); for (const sl of sls) sel[sl] = { base: c[sl], lvl: lvlOf(c[sl]) };
-          const d = (compute(sel, L)[key] || 0) - base;
-          if (d > 0.05 && (!best || d > best.d + 1e-9)) best = { d, ch: c, label: 'Set ' + nm + ' (' + sls.length + ' ks)' };
-        }
-        if (!best) break;
-        for (const sl in best.ch) S[sl] = { base: best.ch[sl], lvl: lvlOf(best.ch[sl]) };
-        steps.push(best.label + ' <b>+' + Math.round(best.d * 10) / 10 + unit + '</b>');
-        log.innerHTML = 'Hľadám… krok ' + (n + 1) + ': ' + esc(best.label);
-        await new Promise(r => setTimeout(r, 0));
+        sets.push({ name: si.name, slots, opts, SB });
+        if (++nSet % 40 === 0) { log.innerHTML = 'Počítam sety… ' + nSet; await new Promise(r => setTimeout(r, 0)); }
       }
+      const solve = w => {
+        const sc = v => v.reduce((a, x, i) => a + w[i] * x, 0);
+        const best = new Array(1 << NS).fill(null);
+        for (let s = 0; s < NS; s++) { let bb = null; for (const c of singlesBy[s]) { const g = sc(c.v); if (g > 0 && (!bb || g > bb.g)) bb = { g, pick: { [SL[s]]: c.b }, label: null }; } best[1 << s] = bb; }
+        for (const set of sets) {
+          const bo = set.slots.map(sl => { let bb = null; for (const b of set.opts[sl]) { const v = ownVec(sl, b, lvlOf(b)); if (!bb || sc(v) > bb.g) bb = { b, v, g: sc(v) }; } return bb; });
+          const n = set.slots.length;
+          for (let m = 1; m < (1 << n); m++) {
+            let k = 0, g = 0, mask = 0; const pick = {};
+            for (let j = 0; j < n; j++) if (m & (1 << j)) { k++; g += bo[j].g; mask |= 1 << idx[set.slots[j]]; pick[set.slots[j]] = bo[j].b; }
+            if (k < 2) continue;
+            g += sc(set.SB[k]);
+            if (g > 0 && (!best[mask] || g > best[mask].g)) best[mask] = { g, pick, label: set.name + ' (' + k + ' ks)' };
+          }
+        }
+        const full = (1 << NS) - 1, dp = new Float64Array(1 << NS), ch = new Int32Array(1 << NS), use = new Uint8Array(1 << NS);
+        for (let M = 1; M <= full; M++) {
+          const low = M & -M; let bv = dp[M ^ low], bs = low, bu = 0; // slot môže ostať bez bonusu
+          for (let sub = M; sub; sub = (sub - 1) & M) { if (!(sub & low) || !best[sub]) continue; const v = dp[M ^ sub] + best[sub].g; if (v > bv) { bv = v; bs = sub; bu = 1; } }
+          dp[M] = bv; ch[M] = bs; use[M] = bu;
+        }
+        const sel = {}, parts = [];
+        for (let M = full; M;) { const sub = ch[M]; if (use[M]) { for (const sl in best[sub].pick) sel[sl] = { base: best[sub].pick[sl], lvl: lvlOf(best[sub].pick[sl]) }; parts.push(best[sub]); } M ^= sub; }
+        return { sel, parts };
+      };
+      const start = compute(S, L)[key] || 0;
+      let bestSol = null;
+      const tryW = w => { const r = solve(w); r.val = compute(r.sel, L)[key] || 0; if (!bestSol || r.val > bestSol.val) bestSol = r; return r; };
+      if (key === 'travel') {
+        // súčin (100 % + zviera + jazda) × (100 % + rýchlosť): opakovane sa váhy nastavia podľa sklonu v práve nájdenej zostave
+        for (const w of [[1, 0], [0, 1], [1, 1], [1, 3], [3, 1]]) tryW(w);
+        let w = [1, 1];
+        for (let it = 0; it < 10; it++) { const r = tryW(w); const v = vecOf(compute(r.sel, L)); const nw = [100 + v[1], 100 + v[0]]; if (Math.abs(nw[0] - w[0]) + Math.abs(nw[1] - w[1]) < 1e-6) break; w = nw; }
+      } else tryW([1]);
+      // ---- 2) Doladenie: výmeny jedného kusu alebo celého setu (zachytí zaokrúhlenia a nelineárne prípady) ----
+      const cur = bestSol.val >= start ? Object.assign({}, bestSol.sel) : Object.assign({}, S);
+      for (const sl of SL) if (!cur[sl] && S[sl]) { const t = Object.assign({}, cur, { [sl]: S[sl] }); if ((compute(t, L)[key] || 0) >= (compute(cur, L)[key] || 0)) cur[sl] = S[sl]; }
+      const singles = []; SL.forEach((sl, s) => singlesBy[s].forEach(c => singles.push([sl, c.b])));
+      const setCombos = [];
+      for (const set of sets) { let combos = [{}]; for (const sl of set.slots) { const nx = []; for (const c of combos) for (const b of set.opts[sl]) nx.push(Object.assign({}, c, { [sl]: b })); combos = nx.slice(0, 16); } for (const c of combos) setCombos.push(c); }
+      for (let n = 0; n < 20; n++) {
+        const base = compute(cur, L)[key] || 0; let best = null;
+        for (const [sl, b] of singles) { if (cur[sl] && cur[sl].base === b) continue; const t = Object.assign({}, cur, { [sl]: { base: b, lvl: lvlOf(b) } }); const d = (compute(t, L)[key] || 0) - base; if (d > 0.05 && (!best || d > best.d)) best = { d, t }; }
+        for (const c of setCombos) { const t = Object.assign({}, cur); for (const sl in c) t[sl] = { base: c[sl], lvl: lvlOf(c[sl]) }; const d = (compute(t, L)[key] || 0) - base; if (d > 0.05 && (!best || d > best.d)) best = { d, t }; }
+        if (!best) break; Object.assign(cur, best.t);
+      }
+      for (const sl of SL) delete S[sl];
+      Object.assign(S, cur);
       const end = compute(S, L)[key] || 0;
       if (side === 'A') paintA(); else renderB();
       calc(); save();
-      log.innerHTML = steps.length
-        ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Kroky: ` + steps.map((t, i) => (i + 1) + ') ' + t).join(', ') + '. <i>Hľadá sa postupnými výmenami, takže to nemusí byť úplne najlepšia možná zostava, ale mala by byť blízko. Vynecháva kusy pre iný level, triedu či pohlavie.</i>' + (own ? ' <i>Použité len veci z inventára a z toho, čo máš na sebe, s ich vylepšením.</i>' : '')
-        : `<b>${side} sa už pre ${SORTNAME[key]} nedá zlepšiť jednou výmenou kusu ani setu.</b>`;
+      // popis výslednej zostavy: sety podľa počtu kusov a samostatné kusy
+      const cnt = {}; for (const sl of SL) { const p = S[sl]; const it = p && ItemManager.get(p.base * 1000); if (it && it.set) cnt[it.set] = (cnt[it.set] || 0) + 1; }
+      const desc = [];
+      for (const k in cnt) if (cnt[k] >= 2) { const s = west.storage.ItemSetManager.get(k); desc.push('<b>' + esc(((s && s.name) || k).trim()) + '</b> ' + cnt[k] + ' ks'); }
+      for (const sl of SL) { const p = S[sl]; const it = p && ItemManager.get(p.base * 1000); if (it && !(it.set && cnt[it.set] >= 2)) desc.push(SN[sl] + ': ' + esc(nameOf(p.base))); }
+      log.innerHTML = end > start + 0.05
+        ? `<b>Hotovo – ${SORTNAME[key]}: z +${start}${unit} na +${end}${unit}.</b> Najlepšia zostava: ` + desc.join(', ') + '. <i>Prepočítané všetky kusy aj všetky sety naraz (aj čiastočné sety a ich kombinácie). Vynecháva kusy pre iný level, triedu či pohlavie.</i>' + (own ? ' <i>Len veci z inventára a z toho, čo máš na sebe, s ich vylepšením.</i>' : '')
+        : `<b>${side} je už najlepšia možná zostava pre ${SORTNAME[key]} (+${end}${unit}).</b>`;
       optRunning = false; btn.disabled = false;
     };
     const fillB = () => { for (const s of SL) $('B-' + s).innerHTML = optionsB(s); };
