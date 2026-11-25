@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – porovnanie setov
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.9.0
+// @version      1.9.1
 // @description  Porovná tvoje oblečenie z hry s ľubovoľnými predmetmi pre zvolený level, vrátane vylepšení ★1–★5 a set bonusov (rýchlosť, XP, zber produktov, šťastie, peniaze).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -184,7 +184,7 @@
   const CSS = () => { const img = p => `url("${CDN()}/images/tw2gui/${p}")`; return `
 #twps{font:12px Arial,Verdana,sans-serif;color:#2b1d0e;line-height:1.3;text-align:left}
 #twps.in-win{height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:12px 12px 8px}
-#twps.floating{position:fixed;z-index:100000;top:30px;left:50%;transform:translateX(-50%);width:1180px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#twps.floating{position:fixed;z-index:100000;top:20px;left:50%;transform:translateX(-50%);width:1540px;max-width:98vw;max-height:94vh;overflow:auto;box-sizing:border-box;padding:12px;background:#ecdcb4 ${img('groupframe/groupframe_bg.jpg?12')};border:3px solid #5c3a1a;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .twps-win .tw2gui_window_inset{background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:0 0 !important}
 #twps::-webkit-scrollbar{width:11px}#twps::-webkit-scrollbar-track{background:rgba(90,60,20,.15);border-radius:6px}
 #twps::-webkit-scrollbar-thumb{background:#8b6b3f;border-radius:6px;border:2px solid #e8d6aa}
@@ -192,6 +192,7 @@
 #twps .gf .tw2gui_groupframe_content_pane{position:relative;height:auto !important;padding:12px 14px 12px}
 #twps .chead{display:flex;flex-direction:column}
 #twps table.list small.parts{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:10px;line-height:12px}
+#twps .pnl.top{padding:8px 14px}
 #twps .tb{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 #twps .tb label{display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5b3a12}
 #twps .tb .grow{flex:1}
@@ -200,6 +201,8 @@
 #twps .pnl{position:relative;margin:0 0 10px;padding:12px 14px;background:#ead9b0 ${img('groupframe/groupframe_bg.jpg?12')};border:1px solid #a8885a;border-radius:5px;box-shadow:inset 0 0 8px rgba(90,60,20,.3),0 1px 0 rgba(255,255,255,.4),0 0 0 1px rgba(60,35,10,.25)}
 #twps .cols .pnl{margin:0}
 #twps .cols{margin-bottom:10px}
+#twps.stack .cols{grid-template-columns:minmax(0,1fr)}
+#twps.stack .cols .pnl+.pnl{margin-top:0}
 #twps h3,#twps h4{margin:0 0 8px;padding:0 0 5px;font:bold 15px Georgia,'Times New Roman',serif;color:#3b2a14;border-bottom:1px solid rgba(110,80,40,.35);display:flex;align-items:baseline;gap:8px}
 #twps h3 small,#twps h4 small{font:normal 11px Arial,sans-serif;color:#6b5a40}
 #twps .tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;align-items:center;margin-bottom:8px}
@@ -220,8 +223,8 @@
 #twps button.btn:not(.tw2gui_button){background:#7a5226;color:#fff;border:1px solid #4a2f12;border-radius:3px;height:24px;padding:0 10px;cursor:pointer;font:bold 12px Arial,sans-serif}
 #twps .optlog{font-size:11px;line-height:1.45;color:#2b4a1a;margin:10px 0 0;padding:6px 8px;background:rgba(120,160,80,.13);border:1px solid rgba(80,120,50,.35);border-radius:3px}
 #twps .optlog:empty{display:none}
-#twps .colin{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-start;justify-content:center}
-#twps .slots{flex:1 1 290px;min-width:0;display:flex;flex-direction:column;gap:3px}
+#twps .colin{display:flex;flex-wrap:nowrap;gap:12px;align-items:flex-start}
+#twps .slots{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
 #twps .row{display:grid;grid-template-columns:78px minmax(0,1fr) 54px;gap:6px;align-items:center;padding:1px 3px;border-radius:3px;margin:0}
 #twps .row>span:first-child{color:#5b3a12;font-weight:bold;font-size:11px;line-height:12px}
 #twps .row select{width:100%}
@@ -331,11 +334,11 @@
     const slotRows = side => SL.map(s => side === 'A'
       ? `<div class="row" id="twps-Ar-${s}"><span>${SN[s]}</span><select id="twps-An-${s}"></select><span id="twps-Al-${s}"></span></div>`
       : `<div class="row" id="twps-Br-${s}"><span>${SN[s]}</span><select id="twps-B-${s}"></select><span id="twps-Bl-${s}"></span></div>`).join('');
-    w.innerHTML = groupframe(`<div class="tb">
+    w.innerHTML = `<div class="pnl top">` + `<div class="tb">
     <label>Level <input type="number" id="twps-L" min="1" max="250" value="${st.L}"></label>
     <label>Zoradiť podľa <select id="twps-sort">${SORTS.map(([k, n]) => `<option value="${k}" ${k === st.sort ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     <span class="hint grow">Bonus platí pre zoradenie výberov, rebríček aj ⚡ hľadanie najlepšej kombinácie v A aj B.</span>
-    <button class="x" id="twps-x" hidden></button></div>`) + `
+    <button class="x" id="twps-x" hidden></button></div></div>` + `
 <div class="cols">
   ${panel(`<div class="chead"><h3>A <small>moje oblečenie (dá sa upraviť)</small></h3>
     <div class="tools">
@@ -352,8 +355,7 @@
       <select id="twps-set" class="full">${setOptions(st.sort, st.L)}</select>
       <input type="text" id="twps-f" placeholder="Hľadať predmet alebo set…">
       <select id="twps-all" title="Nastaví vylepšenie všetkým kusom v B"><option value="">★ Vylepšenie všetkého v B…</option>${[0, 1, 2, 3, 4, 5].map(i => `<option value="${i}">${i === 0 ? 'bez vylepšenia' : '★' + i}</option>`).join('')}</select>
-      <div class="btns full" style="justify-content:flex-start"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť B</button></div>
-      <div class="optbtn"><button class="btn" id="twps-opt" title="Od súčasného B opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa zvolený bonus zlepšuje">⚡ Nájdi najlepšiu kombináciu</button></div>
+      <div class="btns full" style="justify-content:space-between"><span class="btns"><button class="btn" id="twps-copy" title="Skopíruje oblečenie A do B">A → B</button><button class="btn" id="twps-clear">Vyprázdniť B</button></span><button class="btn" id="twps-opt" title="Od súčasného B opakovane spraví najlepšiu výmenu (kus alebo celý set), kým sa zvolený bonus zlepšuje">⚡ Nájdi najlepšiu kombináciu</button></div>
     </div>
     </div>
     <div class="colin">${dollHtml('B')}<div class="slots">${slotRows('B')}</div></div>
@@ -375,7 +377,7 @@ ${panel(`<h4>Porovnanie A a B</h4>
       const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
       gwin = wman.open('twps', 'Porovnanie setov', 'noreload twps-win');
       try { gwin.setMiniTitle('Porovnanie setov'); } catch (e) { }
-      gwin.setSize(Math.max(760, Math.min(1180, vw - 30)), Math.max(520, Math.min(920, vh - 110)));
+      gwin.setSize(Math.max(980, Math.min(1560, vw - 16)), Math.max(560, Math.min(1000, vh - 70)));
       try { gwin.center(); } catch (e) { }
       w.classList.add('in-win');
       gwin.appendToContentPane(w);
@@ -385,9 +387,13 @@ ${panel(`<h4>Porovnanie A a B</h4>
     for (const ev of ['keydown', 'keyup', 'keypress']) w.addEventListener(ev, e => e.stopPropagation());
     skinButtons(w);
     const $ = id => document.getElementById('twps-' + id);
+    // Ak je okno úzke na dva panely (postava + názvy vedľa seba), A a B sú pod sebou.
+    const layout = () => w.classList.toggle('stack', w.clientWidth < 1060);
+    layout(); addEventListener('resize', () => { if (document.getElementById('twps')) layout(); });
     // Hlavičky A a B rovnako vysoké, aby panely s postavou a sloty stáli vedľa seba na rovnakej výške.
     const equalize = () => requestAnimationFrame(() => {
       const hs = [...w.querySelectorAll('.chead')]; hs.forEach(h => h.style.minHeight = '');
+      if (w.classList.contains('stack')) return;
       const m = Math.max(...hs.map(h => h.offsetHeight)); hs.forEach(h => h.style.minHeight = m + 'px');
     });
 
