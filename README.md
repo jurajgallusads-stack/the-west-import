@@ -101,6 +101,23 @@ Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry)
 - Sortiment obchodov sa ukladá v prehliadači pre každý svet a znova sa načíta až po 3 dňoch alebo po kliknutí na **Prehľadať znova**. Celý svet (všetky obývané, NPC a opustené mestá) je pri jednom type obchodu približne 80 požiadaviek, teda asi 3 minúty. Pri súhrne všetkých troch obchodov je to asi 9 minút, ale iba raz za 3 dni.
 - **Cena** je taká, akú ukazuje obchod tebe: v cudzom meste ×4, vo vlastnom meste základná cena.
 
+### Hľadanie ľubovoľného predmetu
+
+Ikona **lupy s $** v rade posilňovačov (vedľa porovnania setov) otvorí hľadanie **akéhokoľvek predmetu z hry**, nielen zo zbierok. Ďalší klik na ikonu okno zatvorí.
+
+- **Filtre:**
+  - **Názov** predmetu alebo setu, bez ohľadu na diakritiku;
+  - **Typ** (pokrývka hlavy, krk, telo, opasok, nohavice, topánky, zbraň na súboj, zbraň do pevnosti, zviera, produkt);
+  - **Bonus:** vlastnosti, schopnosti (napr. Jazda na koni), rýchlosť pohybu, rýchlosť zvieraťa, skúsenosti, šťastie, peniaze, zber produktov, regenerácia, pracovné body;
+  - **Mesto:** ukáže iba to, čo predáva vybrané mesto (mestá sú zoradené podľa vzdialenosti);
+  - **Max. cena**;
+  - zaškrtávacie políčka **len pre moju postavu** (úroveň, trieda, pohlavie), **len predmety z obchodov v mestách** a **skryť, čo už mám** (batoh a výbava).
+- **Bonus** sa ráta pre tvoju postavu: bonusy rastúce s úrovňou sa prepočítajú na tvoj level a pri schopnosti sa pripočíta aj jej vlastnosť, rovnako ako v hre. Po výbere bonusu sa výsledky zoradia od najvyššieho.
+- **Zoradiť** sa dá aj podľa najbližšieho mesta, ceny, úrovne alebo názvu.
+- Pri každom predmete je **najbližšie mesto**, ktoré ho predáva, s časom cesty, počtom ďalších miest a cenou. Pri predmetoch, ktoré obchody nepredávajú, je napísané „iba Obchodník / trh“ alebo „nepredáva sa v obchode“. Klik na predmet ukáže všetky mestá, kde sa predáva, a **← späť na hľadanie** ťa vráti k filtrom.
+- Hľadanie používa ten istý uložený sortiment obchodov ako zbierky. **Samo neposiela žiadnu požiadavku.** Ak niektoré obchody ešte nepozná, ukáže tlačidlo **Prehľadať N obchodov (~čas)**. Pri vybranom type sa prehľadá iba príslušný obchod, pri vybranom meste iba toto mesto.
+- Filtre si skript pamätá.
+
 ## lenk (samostatný skript)
 
 [the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Cez menu Tampermonkey (**lenk → Obrázok obchodníka…**) si môžeš vybrať vlastný obrázok, ktorý prekryje dedka; uloží sa iba v tvojom prehliadači. Iba kreslí v prehliadači, na herný server nič neposiela.

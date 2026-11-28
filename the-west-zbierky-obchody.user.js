@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.0.0
-// @description  V Úspechoch pri chýbajúcich predmetoch zbierok ukáže, v ktorom meste a obchode sa dajú kúpiť, zoradené podľa vzdialenosti. Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
+// @version      1.1.0
+// @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
 // @run-at       document-idle
@@ -27,7 +27,12 @@
   // Ktorý obchod v meste predáva ktorý typ predmetu (overené na sortimente obchodov v hre).
   const SHOP_OF = { head: 'tailor', body: 'tailor', pants: 'tailor', foot: 'tailor', neck: 'general', belt: 'general', animal: 'general', yield: 'general', right_arm: 'gunsmith', left_arm: 'gunsmith' };
   const SHOP_NAME = { tailor: 'Krajčír', general: 'Obchod', gunsmith: 'Puškár' };
+  const SLOT_NAME = { head: 'Pokrývka hlavy', neck: 'Krk', body: 'Telo', belt: 'Opasok', pants: 'Nohavice', foot: 'Topánky', right_arm: 'Zbraň na súboj', left_arm: 'Zbraň do pevnosti', animal: 'Zviera', yield: 'Produkt' };
+  // Bonusy, podľa ktorých sa dá hľadať okrem schopností a vlastností (percentá).
+  const SPECIAL = [['speed', 'Rýchlosť pohybu (%)'], ['animal', 'Rýchlosť zvieraťa (%)'], ['experience', 'Skúsenosti (%)'], ['luck', 'Šťastie (%)'], ['dollar', 'Peniaze (%)'], ['drop', 'Zber produktov (%)'], ['regen', 'Regenerácia (%)'], ['job', 'Pracovné body (všetky práce)']];
+  const PERCENT = ['speed', 'experience', 'luck', 'dollar', 'drop', 'regen'];
 
+  const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // 1 predmet, 2–4 predmety, 5+ predmetov
   const pl = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
@@ -104,6 +109,51 @@
     const name = (sp.getAttribute('title') || img.getAttribute('alt') || '').trim();
     return list.find(i => String(i.name).trim() === name) || list[0];
   };
+
+  // Hodnota bonusu predmetu pre tvoju postavu (bonusy rastúce s úrovňou sa prepočítajú na tvoj level).
+  // Pri schopnosti sa pripočíta aj vlastnosť, ku ktorej patrí (ako v hre).
+  const SKILLS = () => (window.CharacterSkills && CharacterSkills.allSkillKeys) || [];
+  const ATTRS = () => (window.CharacterSkills && CharacterSkills.allAttrKeys) || [];
+  const skillName = k => (window.CharacterSkills && CharacterSkills.keyNames && CharacterSkills.keyNames[k]) || k;
+  const roundB = (v, m) => m === 'ceil' ? Math.ceil(v) : m === 'floor' ? Math.floor(v) : m === 'round' ? Math.round(v) : v;
+  const bonusOf = (it, key) => {
+    if (!it || !key) return 0;
+    if (key === 'animal') return it.speed ? Math.round((1 / it.speed - 1) * 1000) / 10 : 0;
+    const b = it.bonus || {}, isSk = SKILLS().includes(key), isAt = ATTRS().includes(key);
+    let attrOf = null;
+    if (isSk) { try { attrOf = CharacterSkills.getAttributeKey4Skill(key); } catch (e) { } }
+    const lvl = (window.Character && Character.level) || 1;
+    let v = 0;
+    const add = (type, name, val) => {
+      if (!val) return;
+      if (type === 'skill' && name === key) v += val;
+      else if (type === 'attribute' && (name === key || (attrOf && name === attrOf))) v += val;
+      else if (!isSk && !isAt && type === key) v += val;
+    };
+    if (b.skills) for (const k in b.skills) add('skill', k, +b.skills[k]);
+    if (b.attributes) for (const k in b.attributes) add('attribute', k, +b.attributes[k]);
+    for (const x of b.item || []) {
+      if (!x) continue;
+      if (x.type === 'character' && x.bonus) {
+        const bb = x.bonus;
+        if (bb.type === 'job' && bb.job !== 'all') continue;
+        add(bb.type, bb.name, roundB((+bb.value || 0) * lvl, x.roundingMethod));
+      } else {
+        if (x.type === 'job' && x.job !== 'all') continue;
+        add(x.type, x.name, +x.value || 0);
+      }
+    }
+    if (PERCENT.includes(key)) v *= 100;
+    return Math.round(v * 10) / 10;
+  };
+  const usable = it => (!it.level || it.level <= Character.level) && (!it.characterClass || it.characterClass === Character.charClass) && (!it.characterSex || it.characterSex === Character.charSex);
+  const owned = it => {
+    const base = baseOf(it);
+    try { if (window.Bag && Bag.getItemsIdsByBaseItemId && Bag.getItemsIdsByBaseItemId(base).length) return true; } catch (e) { }
+    try { const w = window.Wear && Wear.wear && Wear.wear[it.type]; const o = w && (w.obj || w); if (o && (o.item_base_id === base || Math.floor(o.item_id / 1000) === base)) return true; } catch (e) { }
+    return false;
+  };
+  const setName = it => { if (!it.set) return ''; try { const s = west.storage.ItemSetManager.get(it.set); return (s && s.name) || ''; } catch (e) { return ''; } };
 
   // ---- mestá -------------------------------------------------------------------------------
   // town = [town_id, x, y, názov, počet obyvateľov, npc]
@@ -239,13 +289,27 @@
 #twzo .acts button{margin-right:2px}
 #twzo table.sum td{vertical-align:top}
 #twzo table.sum td.num,#twzo table.sum td.acts{padding-top:6px}
-#twzo .foot{margin-top:10px;font-size:11px;color:#7a6a50}`;
+#twzo .foot{margin-top:10px;font-size:11px;color:#7a6a50}
+#twzo .sf{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 10px;align-items:end;margin-bottom:6px;padding:8px;background:rgba(255,245,220,.55);border:1px solid #b89a68;border-radius:4px}
+#twzo .sf label{display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:bold;color:#5b3a12;min-width:0}
+#twzo .sf label.ck{flex-direction:row;align-items:center;gap:5px;font-weight:normal;color:#3b2a14;cursor:pointer}
+#twzo .sf .wide{grid-column:span 2}
+#twzo .sf .cks{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px}
+#twzo .sf input[type=text],#twzo .sf input[type=number],#twzo .sf select{height:24px;box-sizing:border-box;padding:0 6px;border:1px solid #8b6b3f;border-radius:3px;background:#f7efd9;color:#3b2a14;font:12px Arial,sans-serif;box-shadow:inset 0 1px 2px rgba(0,0,0,.18);width:100%;min-width:0}
+#twzo .sf input[type=checkbox]{margin:0;accent-color:#7a5226}
+#twzo table.res td{padding:3px 5px}
+#twzo table.res img.ic{width:34px;height:34px;vertical-align:middle;border:1px solid rgba(120,90,50,.35);border-radius:3px;background:rgba(90,60,20,.1)}
+#twzo table.res .nm{font-weight:bold}
+#twzo table.res .bv{font-weight:bold;color:#2f5a12}
+#twzo .ownd{color:#2f5a12;font-size:10px;font-weight:bold}
+#twzo-launch{cursor:pointer}
+#twzo-launch.fixed{position:fixed;z-index:99999;right:8px;bottom:180px;background:#5c3a1a;border:2px solid #e2c48c;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.5)}`;
     document.head.appendChild(st);
   };
   const btn = (label, act, data, disabled) => `<button class="tw2gui_button" data-act="${act}"${data ? ` data-v="${esc(data)}"` : ''}${disabled ? ' disabled' : ''}><div class="tw2gui_button_right_cap"></div><div class="tw2gui_button_left_cap"></div><div class="tw2gui_button_middle_bg"></div><div class="textart_title">${esc(label)}</div></button>`;
 
   // ---- okno s výsledkami ---------------------------------------------------------------------
-  let view = null;      // { mode: 'item', base } alebo { mode: 'all', bases: [...] }
+  let view = null;      // { mode: 'item', base } / { mode: 'all', bases: [...] } / { mode: 'search' }
   const MAX_ICONS = 30;  // v súhrne najviac 30 ikon v riadku mesta, zvyšok po kliknutí
   const expanded = new Set();
   let gwin = null, rTimer = null;
@@ -266,6 +330,10 @@
     try { gwin.setSize(760, 540); } catch (e) { }
     gwin.appendToContentPane(w);
     w.addEventListener('click', onClick);
+    w.addEventListener('input', onInput);
+    w.addEventListener('change', onInput);
+    // Písanie do polí nesmie spúšťať klávesové skratky hry.
+    for (const ev of ['keydown', 'keyup', 'keypress']) w.addEventListener(ev, e => e.stopPropagation());
     Scan.subs.add(onScan);
     return w;
   };
@@ -278,7 +346,8 @@
       const pct = Scan.total ? Math.round(Scan.done / Scan.total * 100) : 0;
       h += `<b>Prehľadávam obchody…</b> <span>${Scan.done} / ${Scan.total}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="dim">zostáva asi ${dur(Scan.left * DELAY / 1000)}</span>${btn('Zastaviť', 'stop')}`;
     } else {
-      h += `<span class="grow">Poznám ${known} z ${all} obchodov. <span class="dim">Po 3 dňoch sa obchody prehľadajú znova.</span></span>${btn('Prehľadať znova', 'rescan')}`;
+      const miss = jobsFor(types, false).length;
+      h += `<span class="grow">Poznám ${known} z ${all} obchodov. <span class="dim">Po 3 dňoch sa obchody prehľadajú znova.</span></span>${miss ? btn(`Prehľadať ${miss} ${pl(miss, 'obchod', 'obchody', 'obchodov')} (~${dur(miss * DELAY / 1000)})`, 'scan') : ''}${btn('Prehľadať znova', 'rescan')}`;
     }
     return h + '</div>';
   };
@@ -293,7 +362,7 @@
     const it = getItem(base);
     if (!it) { w.innerHTML = '<p>Predmet sa nenašiel.</p>'; return; }
     const kind = kindOf(it), type = SHOP_OF[it.type];
-    let h = (view && view.back ? '<p style="margin:0 0 6px"><a class="lnk" data-act="back">← späť na súhrn</a></p>' : '') + `<div class="hd"><img src="${esc(it.image)}" alt=""><div><h3>${esc(it.name)}</h3><div class="sub">`;
+    let h = (view && view.back ? `<p style="margin:0 0 6px"><a class="lnk" data-act="back">← späť na ${view.back.mode === 'search' ? 'hľadanie' : 'súhrn'}</a></p>` : '') + `<div class="hd"><img src="${esc(it.image)}" alt=""><div><h3>${esc(it.name)}</h3><div class="sub">`;
     if (kind === 'town') h += `Predáva ${esc(SHOP_NAME[type])} v meste, od úrovne obchodu ${it.traderlevel}. Každé mesto má iný sortiment.`;
     else if (kind === 'trader') h += `<span class="warn">Obchody v mestách tento predmet nepredávajú</span> (úroveň predaja ${it.traderlevel}). Skús putovného Obchodníka alebo trh.`;
     else h += '<span class="warn">Nedá sa kúpiť v obchode.</span> Je z eventu, úlohy, nálezu alebo inej odmeny. Skús trh alebo TW-DB.';
@@ -312,7 +381,7 @@
       const c = coverage(type);
       h += `<div class="note">${Scan.running ? 'Zatiaľ som ho nenašiel. Hľadám ďalej od najbližších miest…' : c.n >= c.of ? `Žiadne z ${c.of} miest tento predmet teraz nepredáva.` : `Zatiaľ som ho nenašiel v ${c.n} známych obchodoch. Klikni na „Prehľadať znova“.`}</div>`;
     }
-    h += `<div class="foot">Cena je podľa hry: cudzinec platí v obchode ×4, člen mesta základnú cenu. Kupuje sa iba na mieste, okno mesta má tlačidlo na cestu tam. <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
+    h += `<div class="foot">Cena je podľa hry: cudzinec platí v obchode ×4, člen mesta základnú cenu. Kupuje sa iba na mieste, okno mesta má tlačidlo na cestu tam. <a class="lnk" data-act="search">Hľadať ľubovoľný predmet</a> · <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
     w.innerHTML = h;
   };
 
@@ -348,33 +417,149 @@
     if (missing.length) {
       h += `<div class="note"><b>${Scan.running ? 'Zatiaľ nenájdené' : 'Nenájdené v žiadnom známom obchode'} (${missing.length}):</b><div class="ics" style="margin-top:4px">${missing.map(i => `<img src="${esc(i.image)}" alt="" title="${esc(i.name)} · úroveň predaja ${i.traderlevel}" data-act="item" data-v="${baseOf(i)}" style="cursor:pointer">`).join('')}</div></div>`;
     }
-    h += `<div class="foot">Klik na predmet ukáže všetky mestá, kde sa predáva. Cena: cudzinec platí ×4, člen mesta základnú cenu. <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
+    h += `<div class="foot">Klik na predmet ukáže všetky mestá, kde sa predáva. Cena: cudzinec platí ×4, člen mesta základnú cenu. <a class="lnk" data-act="search">Hľadať ľubovoľný predmet</a> · <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
     w.innerHTML = h;
   };
+
+  // ---- hľadanie ľubovoľného predmetu ----------------------------------------------------------
+  const F0 = { q: '', type: '', bonus: '', town: '', maxPrice: '', sort: 'near', usable: true, townOnly: true, hideOwned: false };
+  const filters = () => Object.assign({}, F0, DB.f || {});
+  const opt = (v, label, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`;
+  const searchForm = f => {
+    const types = Object.keys(SLOT_NAME).map(k => opt(k, SLOT_NAME[k], f.type)).join('');
+    const bon = `<optgroup label="Vlastnosti">${ATTRS().map(k => opt(k, skillName(k), f.bonus)).join('')}</optgroup>`
+      + `<optgroup label="Schopnosti">${SKILLS().map(k => opt(k, skillName(k), f.bonus)).sort((a, b) => a.replace(/<[^>]+>/g, '').localeCompare(b.replace(/<[^>]+>/g, ''), 'sk')).join('')}</optgroup>`
+      + `<optgroup label="Ostatné">${SPECIAL.map(([k, n]) => opt(k, n, f.bonus)).join('')}</optgroup>`;
+    const sorts = [['near', 'Najbližšie mesto'], ['bonus', 'Najvyšší bonus'], ['price', 'Najnižšia cena'], ['level', 'Najvyššia úroveň'], ['name', 'Názov']].map(([k, n]) => opt(k, n, f.sort)).join('');
+    return `<div class="sf" id="twzo-sf">
+<label class="wide">Názov predmetu<input type="text" name="q" value="${esc(f.q)}" placeholder="napr. sombrero, kolt, kôň…" autocomplete="off"></label>
+<label>Typ<select name="type">${opt('', 'Všetky typy', f.type)}${types}</select></label>
+<label>Bonus<select name="bonus">${opt('', 'Bez bonusu', f.bonus)}${bon}</select></label>
+<label class="wide">Mesto<select name="town"><option value="">Všetky mestá</option></select></label>
+<label>Max. cena ($)<input type="number" name="maxPrice" min="0" step="100" value="${esc(f.maxPrice)}"></label>
+<label>Zoradiť<select name="sort">${sorts}</select></label>
+<div class="cks"><label class="ck"><input type="checkbox" name="usable"${f.usable ? ' checked' : ''}> len pre moju postavu (úroveň, trieda, pohlavie)</label>
+<label class="ck"><input type="checkbox" name="townOnly"${f.townOnly ? ' checked' : ''}> len predmety z obchodov v mestách</label>
+<label class="ck"><input type="checkbox" name="hideOwned"${f.hideOwned ? ' checked' : ''}> skryť, čo už mám</label></div>
+</div><div id="twzo-res"></div>`;
+  };
+  const fillTowns = (w, f) => {
+    const sel = w.querySelector('select[name=town]');
+    if (!sel || sel.options.length > 1 || !towns().length) return;
+    sel.innerHTML = opt('', 'Všetky mestá', f.town) + byDistance().map(({ t, way }) => opt(t[0], `${t[3]} (${dur(way)})`, f.town)).join('');
+  };
+  const searchTypes = f => {
+    if (f.type) return [SHOP_OF[f.type]];
+    return ['tailor', 'general', 'gunsmith'];
+  };
+  const renderSearch = w => {
+    const f = filters();
+    if (!w.querySelector('#twzo-sf')) w.innerHTML = searchForm(f);
+    fillTowns(w, f);
+    const res = w.querySelector('#twzo-res');
+    const types = searchTypes(f);
+    const dist = byDistance();
+    const townId = f.town ? +f.town : 0;
+    const q = norm(f.q), maxP = +f.maxPrice || 0;
+    const all = ItemManager.getAll();
+    const rows = [];
+    for (const k in all) {
+      const it = all[k];
+      if (!it || it.item_level || !SHOP_OF[it.type]) continue;
+      if (it.price === 123456 || (it.speed && it.speed < 0.1)) continue; // testovacie predmety
+      if (f.type && it.type !== f.type) continue;
+      const kind = kindOf(it);
+      if ((f.townOnly || townId) && kind !== 'town') continue;
+      if (q && !norm(it.name).includes(q) && !norm(setName(it)).includes(q)) continue;
+      if (maxP && it.price > maxP) continue;
+      if (f.usable && !usable(it)) continue;
+      const bv = f.bonus ? bonusOf(it, f.bonus) : 0;
+      if (f.bonus && bv <= 0) continue;
+      const base = baseOf(it), type = SHOP_OF[it.type];
+      if (townId) { const s = shopSet(townId + ':' + type); if (!s || !s.has(base)) continue; }
+      if (f.hideOwned && owned(it)) continue;
+      let near = null, cnt = 0;
+      if (kind === 'town') for (const d of dist) { const s = shopSet(d.t[0] + ':' + type); if (s && s.has(base)) { cnt++; if (!near) near = d; } }
+      rows.push({ it, bv, near, cnt, kind });
+    }
+    const cmpName = (a, b) => String(a.it.name).localeCompare(String(b.it.name), 'sk');
+    const sorters = {
+      near: (a, b) => (a.near ? a.near.way : Infinity) - (b.near ? b.near.way : Infinity) || b.bv - a.bv || cmpName(a, b),
+      bonus: (a, b) => b.bv - a.bv || (a.near ? a.near.way : Infinity) - (b.near ? b.near.way : Infinity) || cmpName(a, b),
+      price: (a, b) => a.it.price - b.it.price || cmpName(a, b),
+      level: (a, b) => (b.it.level || 0) - (a.it.level || 0) || cmpName(a, b),
+      name: cmpName
+    };
+    rows.sort(sorters[f.sort] || sorters.near);
+    const limit = view.limit || 100;
+    let h = status(types);
+    if (townId) {
+      const t = towns().find(x => x[0] === townId);
+      const unknown = types.filter(ty => !DB.shops[townId + ':' + ty]);
+      if (unknown.length) h += `<div class="note">Obchody mesta ${esc(t ? t[3] : '')} (${unknown.map(ty => SHOP_NAME[ty]).join(', ')}) ešte nepoznám. ${btn('Prehľadať toto mesto', 'scantown', townId)}</div>`;
+    }
+    h += `<p class="dim" style="margin:4px 0">${rows.length} ${pl(rows.length, 'predmet', 'predmety', 'predmetov')}${rows.length > limit ? `, zobrazených ${limit}` : ''}. Klik na predmet ukáže všetky mestá, kde sa predáva.</p>`;
+    if (rows.length) {
+      h += `<table class="res"><tr><th></th><th>Predmet</th>${f.bonus ? `<th class="num">${esc(f.bonus === 'animal' || PERCENT.includes(f.bonus) || f.bonus === 'job' ? (SPECIAL.find(x => x[0] === f.bonus) || [, f.bonus])[1].replace(/ \(%\)$/, ' %') : skillName(f.bonus))}</th>` : ''}<th class="num">Cena</th><th>Najbližšie mesto</th><th></th></tr>`;
+      for (const r of rows.slice(0, limit)) {
+        const it = r.it, sn = setName(it), e = r.near && DB.shops[r.near.t[0] + ':' + SHOP_OF[it.type]];
+        const charge = e ? (e[2] || 1) : 1;
+        const where = r.kind !== 'town' ? `<span class="dim">${r.kind === 'trader' ? 'iba Obchodník / trh' : 'nepredáva sa v obchode'}</span>`
+          : r.near ? `${townCell(r.near.t)} <span class="dim">${dur(r.near.way)}${r.cnt > 1 ? ` · +${r.cnt - 1} ${pl(r.cnt - 1, 'ďalšie mesto', 'ďalšie mestá', 'ďalších miest')}` : ''}</span>`
+            : `<span class="dim">zatiaľ nenájdené</span>`;
+        h += `<tr><td><img class="ic" src="${esc(it.image)}" alt="" data-act="item" data-v="${baseOf(it)}" style="cursor:pointer"></td>`
+          + `<td><a class="lnk nm" data-act="item" data-v="${baseOf(it)}">${esc(it.name)}</a>${owned(it) ? ' <span class="ownd">✓ máš</span>' : ''}<br><span class="dim">${esc(SLOT_NAME[it.type] || it.type)} · úroveň ${it.level || 1}${sn ? ' · ' + esc(sn) : ''}</span></td>`
+          + (f.bonus ? `<td class="num bv">+${r.bv}</td>` : '')
+          + `<td class="num">${money(it.price * charge)}${charge > 1 ? ` <span class="dim">(×${charge})</span>` : ''}</td><td>${where}</td>`
+          + `<td class="acts">${r.near ? btn('Mesto', 'town', r.near.t[0]) : ''}</td></tr>`;
+      }
+      h += '</table>';
+      if (rows.length > limit) h += `<p>${btn('Zobraziť ďalších 100', 'morerows')}</p>`;
+    } else h += `<div class="note">Nič nevyhovuje filtrom.${f.townOnly ? ' Skús vypnúť „len predmety z obchodov v mestách“.' : ''}</div>`;
+    h += `<div class="foot">Cena: v cudzom meste ×4, vo vlastnom základná. „Zatiaľ nenájdené“ znamená, že ho nepredáva žiadny z doteraz prehľadaných obchodov. <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
+    res.innerHTML = h;
+  };
+  let inTimer = null;
+  function onInput(ev) {
+    if (!view || view.mode !== 'search') return;
+    const el = ev.target;
+    if (!el || !el.name || !el.closest('#twzo-sf')) return;
+    const f = filters();
+    f[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.name === 'bonus') { f.sort = el.value ? 'bonus' : (f.sort === 'bonus' ? 'near' : f.sort); const s = root().querySelector('select[name=sort]'); if (s) s.value = f.sort; }
+    DB.f = f; save();
+    view.limit = 100;
+    clearTimeout(inTimer);
+    inTimer = setTimeout(render, el.type === 'text' || el.type === 'number' ? 250 : 0);
+  }
 
   const render = () => {
     const w = root();
     if (!w || !view) return;
     const sc = w.scrollTop;
-    if (view.mode === 'item') renderItem(w, view.base); else renderAll(w, view.bases);
+    if (view.mode === 'search') { if (!w.querySelector('#twzo-sf')) w.innerHTML = ''; renderSearch(w); }
+    else if (view.mode === 'item') renderItem(w, view.base); else renderAll(w, view.bases);
     w.scrollTop = sc;
   };
 
   const typesOfView = () => {
     if (!view) return [];
     if (view.mode === 'item') { const it = getItem(view.base); return it && SHOP_OF[it.type] ? [SHOP_OF[it.type]] : []; }
+    if (view.mode === 'search') return searchTypes(filters());
     return [...new Set(view.bases.map(getItem).filter(i => i && kindOf(i) === 'town').map(i => SHOP_OF[i.type]))];
   };
 
   const start = async (v, force) => {
     view = v;
-    openWin();
+    const w = openWin();
+    if (w) w.innerHTML = '';
     render();
     try { await loadTowns(); } catch (e) { root() && (root().innerHTML = `<p class="warn">${esc(e.message)}</p>`); return; }
     const types = typesOfView();
     const it = v.mode === 'item' ? getItem(v.base) : null;
     // Predmety, ktoré obchody v mestách nepredávajú, sa automaticky nehľadajú (iba cez „Prehľadať znova“).
-    if (types.length && (force || !it || kindOf(it) === 'town')) Scan.add(jobsFor(types, force));
+    // Hľadanie neprehľadáva samo (bolo by to až 246 obchodov): na to je tlačidlo „Prehľadať … obchodov“.
+    if (v.mode !== 'search' && types.length && (force || !it || kindOf(it) === 'town')) Scan.add(jobsFor(types, force));
     render();
   };
 
@@ -385,12 +570,16 @@
     const t = v && towns().find(x => String(x[0]) === v);
     if (act === 'stop') Scan.stop();
     else if (act === 'rescan') { const types = typesOfView(); if (types.length) Scan.add(jobsFor(types, true)); }
-    else if (act === 'item') start({ mode: 'item', base: +v, back: view && view.mode === 'all' ? view : null });
+    else if (act === 'item') start({ mode: 'item', base: +v, back: view && (view.mode === 'all' || view.mode === 'search') ? view : (view && view.back) || null });
+    else if (act === 'search') start({ mode: 'search' });
+    else if (act === 'scan') { const types = typesOfView(); if (types.length) Scan.add(jobsFor(types, false)); }
+    else if (act === 'scantown') { const tw = towns().find(x => String(x[0]) === v); if (tw) Scan.add(typesOfView().map(type => ({ k: tw[0] + ':' + type, id: tw[0], type, name: tw[3] }))); }
+    else if (act === 'morerows') { view.limit = (view.limit || 100) + 100; render(); }
     else if (act === 'back' && view && view.back) start(view.back);
     else if (act === 'more') { const id = +v; if (expanded.has(id)) expanded.delete(id); else expanded.add(id); render(); }
     else if (act === 'town' && t) TownWindow.open(t[1], t[2], t[5] ? 'npc' : undefined);
     else if (act === 'map' && t) { try { GameMap.center(t[1], t[2]); } catch (e) { } }
-    else if (act === 'clear') { DB = { shops: {} }; sets.clear(); save(); render(); }
+    else if (act === 'clear') { if (!confirm('Vymazať uložený sortiment všetkých obchodov? Pri ďalšom hľadaní sa obchody prehľadajú znova.')) return; DB = { shops: {}, f: DB.f }; sets.clear(); save(); loadTowns().then(render, render); }
   }
 
   // ---- tlačidlá v Úspechoch -------------------------------------------------------------------
@@ -468,7 +657,35 @@
     };
   };
 
+  // ---- ikona v rade posilňovačov: hľadanie ľubovoľného predmetu ------------------------------
+  const ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="43" height="43" viewBox="0 0 43 43"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc96"/><stop offset=".55" stop-color="#c29143"/><stop offset="1" stop-color="#6e4b1d"/></linearGradient></defs><path d="M26.5 26.5 L36 36" stroke="#3b250c" stroke-width="7" stroke-linecap="round"/><path d="M26.5 26.5 L36 36" stroke="url(#g)" stroke-width="4.6" stroke-linecap="round"/><circle cx="18" cy="18" r="11.5" fill="#f3e6c4" stroke="#3b250c" stroke-width="5.4"/><circle cx="18" cy="18" r="11.5" fill="none" stroke="url(#g)" stroke-width="3.6"/><text x="18" y="23.2" font-family="Georgia,serif" font-weight="bold" font-size="15" text-anchor="middle" fill="#3b250c">$</text></svg>`);
+  const closeWin = () => { try { const wnd = wman.getById('twzo'); if (wnd) wnd.destroy(); } catch (e) { } const w = root(); if (w) { const win = w.closest('.tw2gui_window'); if (win) win.remove(); } };
+  const toggleSearch = () => { if (root() && view && view.mode === 'search') closeWin(); else start({ mode: 'search' }); };
+  const mountLauncher = () => {
+    if (document.getElementById('twzo-launch')) return;
+    installCss();
+    const host = document.createElement('div');
+    host.className = 'twzo-launchhost';
+    host.setAttribute('data-hud', '');
+    host.innerHTML = `<div id="twzo-launch" class="bag_item_mini" role="button" tabindex="0" title="Kde kúpiť: hľadať ľubovoľný predmet"><img src="${ICON}" alt="" width="43" height="43"></div>`;
+    host.firstChild.addEventListener('click', toggleSearch);
+    const put = () => {
+      const row = document.getElementById('buffbars');
+      if (!row) return false;
+      const after = row.querySelector('.twps-launch') || row.querySelector('.twcalc-buff');
+      if (after) after.after(host); else row.prepend(host);
+      host.firstChild.classList.remove('fixed');
+      return true;
+    };
+    if (put()) return;
+    host.firstChild.classList.add('fixed');
+    document.body.appendChild(host);
+    let n = 0;
+    const iv = setInterval(() => { if (put() || ++n > 60) clearInterval(iv); }, 2000);
+  };
+
   const init = () => {
+    mountLauncher();
     const origOpen = AchievementWindow.open;
     AchievementWindow.open = function () {
       const inst = origOpen.apply(this, arguments);
