@@ -129,6 +129,13 @@ Keď v hľadaní vyberieš **Mesto** (napríklad spolu so Zbierkami „len to, �
 - **Kopírovať správu pre hráča:** do schránky skopíruje hotovú správu s odkazmi na predmety (`[item=ID]`), cenou každého kusu s príplatkom a celkovou sumou. Stačí ju vložiť do správy alebo chatu.
 - **Kopírovať len ID:** iba ID predmetov oddelené čiarkou.
 - Ak prehliadač kopírovanie nedovolí, ukáže sa text v poli na ručné skopírovanie.
+- **Požiadavky na trhu…** otvorí zoznam na vystavenie požiadaviek **„Chci koupit“** na trhu v tvojom meste, vždy 1 kus za nákupnú cenu s príplatkom:
+  - nastavíš **dobu trvania** (predvolene 7 dní), **platbu** (hotovosť alebo bankový účet), **kto môže predať** (ktokoľvek, aliancia, mesto) a **poznámku** pre predajcu;
+  - **jedno kliknutie = jedna požiadavka:** buď **Vystaviť** pri konkrétnom predmete, alebo opakovane **Vystaviť ďalšiu**. Skript nič nevystavuje hromadne ani sám od seba. Medzi požiadavkami je aspoň 1 sekunda;
+  - posiela rovnakú požiadavku ako dialóg hry „Koupit předmět?“. Hra zablokuje sumu ponuky a strhne **poplatok trhu, ktorý sa nevracia**. Skript ukáže poplatok každej požiadavky aj súčet;
+  - požiadavky sa dajú vystaviť **iba vo vlastnom meste**. Mimo neho hra pýta nuggety, preto sú tlačidlá vypnuté;
+  - predmety, na ktoré už na trhu požiadavku máš, sú označené a „Vystaviť ďalšiu“ ich preskočí. Pri otvorení sa to raz overí, rovnakou požiadavkou ako záložka Trh → Chci koupit;
+  - zrušenie alebo vyzdvihnutie ponuky robíš v hre: Trh → Chci koupit.
 
 ## lenk (samostatný skript)
 

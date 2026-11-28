@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.3.0
+// @version      1.4.0
 // @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -577,7 +577,7 @@
 <label>Príplatok pre predajcu <select name="markup">${opt('0', 'bez príplatku', f.markup)}${opt('5', '+5 %', f.markup)}${opt('10', '+10 %', f.markup)}</select></label>
 <span>Zaplatíš: <b class="tot">${money(withMk)}</b></span></div>
 <div class="dim">Keby si to kupoval sám v tomto meste: ${money(mine)}${mine > withMk ? ` (ušetríš ${money(mine - withMk)})` : ''}.</div>
-<div class="bb">${btn('Kopírovať správu pre hráča', 'copymsg')}${btn('Kopírovať len ID', 'copyids')}<span class="copied" id="twzo-copied"></span></div></div>`;
+<div class="bb">${btn('Kopírovať správu pre hráča', 'copymsg')}${btn('Kopírovať len ID', 'copyids')}${btn('Požiadavky na trhu…', 'market')}<span class="copied" id="twzo-copied"></span></div></div>`;
     }
     h += `<p class="dim" style="margin:4px 0">${rows.length} ${pl(rows.length, 'predmet', 'predmety', 'predmetov')}${rows.length > limit ? `, zobrazených ${limit}` : ''}. Klik na predmet ukáže všetky mestá, kde sa predáva.</p>`;
     if (rows.length) {
@@ -629,8 +629,90 @@
     if (!ok) { const box = document.getElementById('twzo-buy'); if (box && !box.querySelector('textarea')) { const ta = document.createElement('textarea'); ta.value = text; ta.rows = 6; ta.style.cssText = 'width:100%;margin-top:6px'; box.appendChild(ta); ta.select(); } }
   };
 
+  // ---- požiadavky „Chci koupit“ na trhu vo vlastnom meste -------------------------------------
+  // Jedno kliknutie = jedna požiadavka. Posiela sa tá istá požiadavka ako z dialógu hry „Koupit předmět?“.
+  const M0 = { days: '7', bidtype: '0', rights: '2', note: '' };
+  const mset = () => Object.assign({}, M0, DB.mset || {});
+  const atHome = () => { try { const h = Character.homeTown, p = Character.position; return !!(h && h.town_id && p && p.x === h.x && p.y === h.y); } catch (e) { return false; } };
+  const homeName = () => { try { const h = Character.homeTown; const t = towns().find(x => x[0] === h.town_id); return (t && t[3]) || h.town_name || 'tvoje mesto'; } catch (e) { return 'tvoje mesto'; } };
+  let mBusy = false, mLast = 0;
+  const loadOwnOffers = () => new Promise(resolve => {
+    try {
+      Ajax.remoteCall('building_market', 'get_own_buy_offers', { town_id: Character.homeTown.town_id }, json => {
+        if (json && !json.error && Array.isArray(json.msg)) view.own = new Set(json.msg.map(o => Math.floor(o.item_id / 1000)));
+        resolve();
+      });
+    } catch (e) { resolve(); }
+  });
+  const marketNote = list => mset().note || `Nákup do zbierky${list.mk ? `, cena +${list.mk} %` : ''}`;
+  const placeOffer = base => {
+    if (!view || view.mode !== 'market' || mBusy) return;
+    const L = view.list, it = L.items.find(i => baseOf(i) === base);
+    if (!it || view.done[base]) return;
+    if (!atHome()) { view.msg = `Požiadavky sa dajú vystaviť iba vo vlastnom meste (${homeName()}). Mimo neho hra pýta nuggety, preto ich skript nevystaví.`; render(); return; }
+    const wait = mLast + 1000 - Date.now();
+    if (wait > 0) { setTimeout(() => placeOffer(base), wait); return; }
+    const m = mset(), price = priceWith(it.price, L.mk);
+    const obj = { town_id: Character.homeTown.town_id, item_id: it.item_id, itemcount: 1, auctioncount: 1, sellrights: +m.rights, auctionlength: +m.days, description: marketNote(L).slice(0, 200), direction: 'BUY', bidtype: +m.bidtype, maxprice: price };
+    mBusy = true; mLast = Date.now(); view.done[base] = { state: 'busy' }; render();
+    Ajax.remoteCall('building_market', 'putup', obj, resp => {
+      mBusy = false;
+      if (!resp || resp.error) { view.done[base] = { state: 'err', msg: (resp && resp.msg) || 'Chyba' }; }
+      else {
+        try { Character.setMoney(resp.msg.money); Character.setDeposit(resp.msg.deposit); } catch (e) { }
+        const fee = +(resp.msg && resp.msg.costs) || 0;
+        view.done[base] = { state: 'ok', fee };
+        view.fees = (view.fees || 0) + fee;
+        DB.placed = DB.placed || {}; DB.placed[it.item_id] = Date.now(); save();
+        try { new UserMessage(`Požiadavka vystavená: ${it.name}, ${money(price)} (poplatok ${money(fee)})`, UserMessage.TYPE_SUCCESS).show(); } catch (e) { }
+      }
+      render();
+    });
+  };
+  const renderMarket = w => {
+    const L = view.list, m = mset(), home = atHome();
+    const pending = L.items.filter(i => !view.done[baseOf(i)] || view.done[baseOf(i)].state === 'err').filter(i => !(view.own && view.own.has(baseOf(i))));
+    const total = L.items.reduce((a, i) => a + priceWith(i.price, L.mk), 0);
+    const okN = L.items.filter(i => view.done[baseOf(i)] && view.done[baseOf(i)].state === 'ok').length;
+    let cash = 0, bank = 0; try { cash = Character.money; bank = Character.deposit; } catch (e) { }
+    let h = `<p style="margin:0 0 6px"><a class="lnk" data-act="back">← späť na hľadanie</a></p>`;
+    h += `<div class="hd"><div><h3>Požiadavky „Chci koupit“ na trhu v meste ${esc(homeName())}</h3><div class="sub">${L.items.length} ${pl(L.items.length, 'predmet', 'predmety', 'predmetov')} z mesta ${esc(L.town)}, cena = nákupná cena${L.mk ? ` + ${L.mk} %` : ''}. Spolu ${money(total)}.</div></div></div>`;
+    h += `<div class="sf" id="twzo-mf" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+<label>Doba trvania<select name="days">${[1, 2, 3, 4, 5, 6, 7].map(d => opt(d, d + ' ' + pl(d, 'deň', 'dni', 'dní'), m.days)).join('')}</select></label>
+<label>Platba<select name="bidtype">${opt('0', 'Hotovosť', m.bidtype)}${opt('1', 'Bankový účet', m.bidtype)}</select></label>
+<label class="wide">Kto môže predať<select name="rights">${(window.Game && Game.marketFreeTradeEnabled ? opt('2', 'Ktokoľvek', m.rights) : '')}${opt('1', 'Iba členovia aliancie', m.rights)}${opt('0', 'Iba členovia môjho mesta', m.rights)}</select></label>
+<label class="wide" style="grid-column:1/-1">Poznámka k nákupu (uvidí ju predajca)<input type="text" name="note" maxlength="200" value="${esc(m.note)}" placeholder="${esc(marketNote(Object.assign({}, L, { mk: L.mk })))}"></label></div>`;
+    h += `<div class="st">${home ? `<span class="grow">Si vo svojom meste. Hotovosť ${money(cash)}, banka ${money(bank)}. Suma ponuky sa zablokuje ${m.bidtype === '1' ? 'z banky' : 'z hotovosti'}, poplatok trhu sa nevracia.</span>`
+      : `<span class="grow warn"><b>Nie si vo svojom meste (${esc(homeName())}).</b> Požiadavky sa dajú vystaviť iba tam, inak hra pýta nuggety.</span>`}`
+      + `${btn(pending.length ? `Vystaviť ďalšiu (${okN + 1}/${L.items.length})` : 'Všetko vystavené', 'mnext', '', !home || !pending.length || mBusy)}</div>`;
+    if (view.msg) { h += `<div class="note warn">${esc(view.msg)}</div>`; view.msg = ''; }
+    h += `<p class="dim" style="margin:4px 0">Vystavené: ${okN} z ${L.items.length}${view.fees ? `, poplatky spolu ${money(view.fees)}` : ''}. Každé kliknutie vystaví jednu požiadavku na 1 kus.</p>`;
+    h += `<table class="res"><tr><th></th><th>Predmet</th><th class="num">Cena</th><th>Stav</th><th></th></tr>`;
+    for (const it of L.items) {
+      const b = baseOf(it), d = view.done[b], own = view.own && view.own.has(b) && !(d && d.state === 'ok');
+      const st = d && d.state === 'ok' ? `<span class="ownd">✓ vystavené</span> <span class="dim">poplatok ${money(d.fee)}</span>`
+        : d && d.state === 'busy' ? 'vystavujem…'
+          : d && d.state === 'err' ? `<span class="warn">${esc(d.msg)}</span>`
+            : own ? '<span class="dim">už máš požiadavku na trhu</span>' : '<span class="dim">čaká</span>';
+      h += `<tr><td><img class="ic" src="${esc(it.image)}" alt=""></td><td><span class="nm">${esc(it.name)}</span><br><span class="dim">${esc(SLOT_NAME[it.type] || '')} · nákupná cena ${money(it.price)}</span></td><td class="num">${money(priceWith(it.price, L.mk))}</td><td>${st}</td>`
+        + `<td class="acts">${d && d.state === 'ok' ? '' : btn(own ? 'Vystaviť aj tak' : 'Vystaviť', 'mone', b, !home || mBusy || (d && d.state === 'busy'))}</td></tr>`;
+    }
+    h += '</table><div class="foot">Predajca musí predmet priniesť na trh v tvojom meste. Ponuku zrušíš alebo vyzdvihneš v hre: Trh → Chci koupit.</div>';
+    const sc = w.scrollTop;
+    w.innerHTML = h;
+    w.scrollTop = sc;
+  };
+
   let inTimer = null;
   function onInput(ev) {
+    const mf = ev.target && ev.target.closest && ev.target.closest('#twzo-mf');
+    if (mf && view && view.mode === 'market') {
+      const el = ev.target, m = mset();
+      m[el.name] = el.value;
+      DB.mset = m; save();
+      if (ev.type === 'change' && el.name !== 'note') render();
+      return;
+    }
     if (!view || view.mode !== 'search') return;
     const el = ev.target;
     if (!el || !el.name || !el.closest('#twzo-sf, #twzo-buy')) return;
@@ -648,6 +730,7 @@
     if (!w || !view) return;
     const sc = w.scrollTop;
     if (view.mode === 'search') { if (!w.querySelector('#twzo-sf')) w.innerHTML = ''; renderSearch(w); }
+    else if (view.mode === 'market') { renderMarket(w); return; }
     else if (view.mode === 'item') renderItem(w, view.base); else renderAll(w, view.bases);
     w.scrollTop = sc;
   };
@@ -656,6 +739,7 @@
     if (!view) return [];
     if (view.mode === 'item') { const it = getItem(view.base); return it && SHOP_OF[it.type] ? [SHOP_OF[it.type]] : []; }
     if (view.mode === 'search') return searchTypes(filters());
+    if (view.mode === 'market') return [];
     return [...new Set(view.bases.map(getItem).filter(i => i && kindOf(i) === 'town').map(i => SHOP_OF[i.type]))];
   };
 
@@ -684,6 +768,9 @@
     else if (act === 'search') start({ mode: 'search' });
     else if (act === 'scan') { const types = typesOfView(); if (types.length) Scan.add(jobsFor(types, false)); }
     else if (act === 'scantown') { const tw = towns().find(x => String(x[0]) === v); if (tw) Scan.add(typesOfView().map(type => ({ k: tw[0] + ':' + type, id: tw[0], type, name: tw[3] }))); }
+    else if (act === 'market' && buyList) { const back = view; start({ mode: 'market', list: Object.assign({}, buyList, { items: buyList.items.slice() }), done: {}, fees: 0, back }); loadOwnOffers().then(render); }
+    else if (act === 'mone') placeOffer(+v);
+    else if (act === 'mnext' && view && view.mode === 'market') { const L = view.list; const next = L.items.find(i => { const d = view.done[baseOf(i)]; return (!d || d.state === 'err') && !(view.own && view.own.has(baseOf(i))); }); if (next) placeOffer(baseOf(next)); }
     else if (act === 'copymsg') doCopy('msg');
     else if (act === 'copyids') doCopy('ids');
     else if (act === 'reloadcoll') { loadColl(true).then(render); }
