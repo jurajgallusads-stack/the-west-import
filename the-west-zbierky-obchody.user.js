@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.2.0
+// @version      1.3.0
 // @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -351,6 +351,15 @@
 #twzo table.res .bv{font-weight:bold;color:#2f5a12}
 #twzo .ownd{color:#2f5a12;font-size:10px;font-weight:bold}
 #twzo .miss{color:#8a2a10;font-size:10px;font-weight:bold}
+#twzo .buy{margin:4px 0 8px;padding:8px 10px;background:rgba(214,233,170,.45);border:1px solid #7a9a3a;border-radius:4px}
+#twzo .buy h4{margin:0 0 6px;font:bold 14px Georgia,'Times New Roman',serif;color:#2f4a10}
+#twzo .buy h4 small{font:normal 11px Arial,sans-serif;color:#5b4a30}
+#twzo .buy .bt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin-bottom:4px}
+#twzo .buy .bt label{display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5b3a12}
+#twzo .buy select{height:24px;border:1px solid #8b6b3f;border-radius:3px;background:#f7efd9;color:#3b2a14;font:12px Arial,sans-serif}
+#twzo .buy .tot{font-size:14px;color:#2f5a12}
+#twzo .buy .bb{margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#twzo .buy .copied{color:#2f5a12;font-weight:bold;font-size:11px}
 #twzo-launch{cursor:pointer}
 #twzo-launch.fixed{position:fixed;z-index:99999;right:8px;bottom:180px;background:#5c3a1a;border:2px solid #e2c48c;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.5)}`;
     document.head.appendChild(st);
@@ -471,7 +480,7 @@
   };
 
   // ---- hľadanie ľubovoľného predmetu ----------------------------------------------------------
-  const F0 = { q: '', type: '', bonus: '', town: '', maxPrice: '', sort: 'near', usable: true, townOnly: true, coll: '' };
+  const F0 = { q: '', type: '', bonus: '', town: '', maxPrice: '', sort: 'near', usable: true, townOnly: true, coll: '', markup: '0' };
   const filters = () => { const f = Object.assign({}, F0, DB.f || {}); delete f.hideOwned; return f; };
   const opt = (v, label, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`;
   const searchForm = f => {
@@ -554,6 +563,22 @@
       const unknown = types.filter(ty => !DB.shops[townId + ':' + ty]);
       if (unknown.length) h += `<div class="note">Obchody mesta ${esc(t ? t[3] : '')} (${unknown.map(ty => SHOP_NAME[ty]).join(', ')}) ešte nepoznám. ${btn('Prehľadať toto mesto', 'scantown', townId)}</div>`;
     }
+    buyList = null;
+    if (townId && rows.length) {
+      // Nákupný zoznam: čo predáva vybrané mesto, za koľko to kúpi jeho obyvateľ (základná cena) + príplatok pre neho.
+      const t = towns().find(x => x[0] === townId);
+      const mk = +f.markup || 0;
+      const base = rows.reduce((a, r) => a + (r.it.price || 0), 0);
+      const withMk = rows.reduce((a, r) => a + priceWith(r.it.price, mk), 0);
+      const mine = rows.reduce((a, r) => { const e = DB.shops[townId + ':' + SHOP_OF[r.it.type]]; return a + (r.it.price || 0) * ((e && e[2]) || 4); }, 0);
+      buyList = { town: t ? t[3] : '', mk, items: rows.map(r => r.it), base, withMk };
+      h += `<div class="buy" id="twzo-buy"><h4>Nákupný zoznam: ${esc(t ? t[3] : '')} <small>${rows.length} ${pl(rows.length, 'predmet', 'predmety', 'predmetov')}</small></h4>
+<div class="bt"><span>Nákupná cena pre obyvateľa mesta: <b>${money(base)}</b></span>
+<label>Príplatok pre predajcu <select name="markup">${opt('0', 'bez príplatku', f.markup)}${opt('5', '+5 %', f.markup)}${opt('10', '+10 %', f.markup)}</select></label>
+<span>Zaplatíš: <b class="tot">${money(withMk)}</b></span></div>
+<div class="dim">Keby si to kupoval sám v tomto meste: ${money(mine)}${mine > withMk ? ` (ušetríš ${money(mine - withMk)})` : ''}.</div>
+<div class="bb">${btn('Kopírovať správu pre hráča', 'copymsg')}${btn('Kopírovať len ID', 'copyids')}<span class="copied" id="twzo-copied"></span></div></div>`;
+    }
     h += `<p class="dim" style="margin:4px 0">${rows.length} ${pl(rows.length, 'predmet', 'predmety', 'predmetov')}${rows.length > limit ? `, zobrazených ${limit}` : ''}. Klik na predmet ukáže všetky mestá, kde sa predáva.</p>`;
     if (rows.length) {
       h += `<table class="res"><tr><th></th><th>Predmet</th>${f.bonus ? `<th class="num">${esc(f.bonus === 'animal' || PERCENT.includes(f.bonus) || f.bonus === 'job' ? (SPECIAL.find(x => x[0] === f.bonus) || [, f.bonus])[1].replace(/ \(%\)$/, ' %') : skillName(f.bonus))}</th>` : ''}<th class="num">Cena</th><th>Najbližšie mesto</th><th></th></tr>`;
@@ -575,11 +600,40 @@
     h += `<div class="foot">Cena: v cudzom meste ×4, vo vlastnom základná. „Zatiaľ nenájdené“ znamená, že ho nepredáva žiadny z doteraz prehľadaných obchodov. <a class="lnk" data-act="clear">Vymazať uložené obchody</a></div>`;
     res.innerHTML = h;
   };
+  // ---- nákupný zoznam: kopírovanie ------------------------------------------------------------
+  let buyList = null;
+  // Celé doláre nahor; malá rezerva, aby 3000 × 1,1 nevyšlo 3301 kvôli desatinnej chybe.
+  const priceWith = (p, mk) => Math.ceil((p || 0) * (100 + mk) / 100 - 1e-6);
+  const buyMessage = () => {
+    const b = buyList;
+    const lines = b.items.map(it => `[item=${it.item_id}] ${money(priceWith(it.price, b.mk))}`);
+    return `Ahoj, kúpil by si mi v meste ${b.town} tieto veci? Zaplatím nákupnú cenu${b.mk ? ` + ${b.mk} % navyše` : ''}.\n`
+      + lines.join('\n')
+      + `\nSpolu ${b.items.length} ${pl(b.items.length, 'kus', 'kusy', 'kusov')}: ${money(b.withMk)}${b.mk ? ` (nákupná cena ${money(b.base)} + ${b.mk} %)` : ''}`;
+  };
+  const copyText = async text => {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  };
+  const doCopy = async kind => {
+    if (!buyList) return;
+    const text = kind === 'ids' ? buyList.items.map(it => it.item_id).join(', ') : buyMessage();
+    const ok = await copyText(text);
+    const el = document.getElementById('twzo-copied');
+    if (el) el.textContent = ok ? '✓ skopírované do schránky' : 'Kopírovanie zlyhalo, označ text nižšie a skopíruj ho ručne.';
+    if (!ok) { const box = document.getElementById('twzo-buy'); if (box && !box.querySelector('textarea')) { const ta = document.createElement('textarea'); ta.value = text; ta.rows = 6; ta.style.cssText = 'width:100%;margin-top:6px'; box.appendChild(ta); ta.select(); } }
+  };
+
   let inTimer = null;
   function onInput(ev) {
     if (!view || view.mode !== 'search') return;
     const el = ev.target;
-    if (!el || !el.name || !el.closest('#twzo-sf')) return;
+    if (!el || !el.name || !el.closest('#twzo-sf, #twzo-buy')) return;
     const f = filters();
     f[el.name] = el.type === 'checkbox' ? el.checked : el.value;
     if (el.name === 'bonus') { f.sort = el.value ? 'bonus' : (f.sort === 'bonus' ? 'near' : f.sort); const s = root().querySelector('select[name=sort]'); if (s) s.value = f.sort; }
@@ -630,6 +684,8 @@
     else if (act === 'search') start({ mode: 'search' });
     else if (act === 'scan') { const types = typesOfView(); if (types.length) Scan.add(jobsFor(types, false)); }
     else if (act === 'scantown') { const tw = towns().find(x => String(x[0]) === v); if (tw) Scan.add(typesOfView().map(type => ({ k: tw[0] + ':' + type, id: tw[0], type, name: tw[3] }))); }
+    else if (act === 'copymsg') doCopy('msg');
+    else if (act === 'copyids') doCopy('ids');
     else if (act === 'reloadcoll') { loadColl(true).then(render); }
     else if (act === 'morerows') { view.limit = (view.limit || 100) + 100; render(); }
     else if (act === 'back' && view && view.back) start(view.back);

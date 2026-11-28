@@ -119,6 +119,17 @@ Ikona **lupy s $** v rade posilňovačov (vedľa porovnania setov) otvorí hľad
 - Hľadanie používa ten istý uložený sortiment obchodov ako zbierky. **Samo neposiela žiadnu požiadavku.** Ak niektoré obchody ešte nepozná, ukáže tlačidlo **Prehľadať N obchodov (~čas)**. Pri vybranom type sa prehľadá iba príslušný obchod, pri vybranom meste iba toto mesto.
 - Filtre si skript pamätá.
 
+### Nákupný zoznam pre hráča z iného mesta
+
+Keď v hľadaní vyberieš **Mesto** (napríklad spolu so Zbierkami „len to, čo mi chýba do zbierok“), nad výsledkami sa ukáže **Nákupný zoznam** pre toto mesto:
+
+- **Nákupná cena pre obyvateľa mesta:** súčet základných cien všetkých vyfiltrovaných predmetov (nielen prvých 100 zobrazených). Toľko zaplatí hráč z toho mesta vo svojom obchode.
+- **Príplatok pre predajcu:** bez príplatku, +5 % alebo +10 % ako odmena pre toho, kto ti veci kúpi. **Zaplatíš** ukáže sumu aj s príplatkom.
+- Pre porovnanie aj suma, ktorú by si zaplatil sám v tom meste (cudzinec ×4), a koľko ušetríš.
+- **Kopírovať správu pre hráča:** do schránky skopíruje hotovú správu s odkazmi na predmety (`[item=ID]`), cenou každého kusu s príplatkom a celkovou sumou. Stačí ju vložiť do správy alebo chatu.
+- **Kopírovať len ID:** iba ID predmetov oddelené čiarkou.
+- Ak prehliadač kopírovanie nedovolí, ukáže sa text v poli na ručné skopírovanie.
+
 ## lenk (samostatný skript)
 
 [the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Cez menu Tampermonkey (**lenk → Obrázok obchodníka…**) si môžeš vybrať vlastný obrázok, ktorý prekryje dedka; uloží sa iba v tvojom prehliadači. Iba kreslí v prehliadači, na herný server nič neposiela.
