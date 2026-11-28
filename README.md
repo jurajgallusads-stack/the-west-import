@@ -90,6 +90,17 @@ Výsledky sú rovnaké ako v hárku Kalkulačka pre tých istých 23 výrobkov, 
 
 Starší import do Google tabuľky (záložka z bunky A14 v hárku Import z hry) ostáva v tabuľke, tento skript ho už nepoužíva. Časť Tím zapisuje do vlastných hárkov „Tím – batohy“ a „Tím – ciele“.
 
+## Kde kúpiť do zbierky (samostatný skript)
+
+[the-west-zbierky-obchody.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-zbierky-obchody.user.js): v **Úspechoch → Predmety → Zbierky** pridá ku každému chýbajúcemu predmetu malé tlačidlo. Ukáže, v ktorom meste a obchode sa dá predmet kúpiť. Inštaluje sa rovnako cez Tampermonkey. Skript **nič nekupuje a postavu nikam neposiela**.
+
+- **$** pri predmete: predáva ho obchod v meste (krajčír, obchod so zmiešaným tovarom alebo puškár). Zelené **$** znamená, že ho už predáva niektoré známe mesto, a bublina ukáže najbližšie. **?** znamená, že sa v obchodoch nepredáva (event, úloha, nález, putovný Obchodník).
+- **Klik na $** otvorí okno hry so zoznamom miest, ktoré predmet predávajú, **zoradeným podľa vzdialenosti**. Pri každom meste je obchod s úrovňou, cena, čas cesty a vek údajov. Tlačidlo **Mesto** otvorí okno mesta (odtiaľ sa ide tam), **Na mape** ho ukáže na mape.
+- **Kde kúpiť všetko** (nad zoznamom zbierok): mestá zoradené podľa vzdialenosti a pri každom predmety zo zbierok, ktoré tam kúpiš. Takto vybavíš viac nákupov jednou cestou. Klik na predmet ukáže všetky mestá, ktoré ho predávajú.
+- **Každé mesto má iný sortiment**, preto skript obchody aktívne prehľadá. Ide od najbližšieho mesta a pýta sa len na obchod, ktorý daný typ predmetu predáva. Posiela **jednu požiadavku naraz, najviac jednu za 2 sekundy**. Výsledky pribúdajú priebežne a hľadanie sa dá kedykoľvek **zastaviť**. Zatvorením okna sa hľadanie zastaví tiež.
+- Sortiment obchodov sa ukladá v prehliadači pre každý svet a znova sa načíta až po 3 dňoch alebo po kliknutí na **Prehľadať znova**. Celý svet (všetky obývané, NPC a opustené mestá) je pri jednom type obchodu približne 80 požiadaviek, teda asi 3 minúty. Pri súhrne všetkých troch obchodov je to asi 9 minút, ale iba raz za 3 dni.
+- **Cena** je taká, akú ukazuje obchod tebe: v cudzom meste ×4, vo vlastnom meste základná cena.
+
 ## lenk (samostatný skript)
 
 [the-west-lenk.user.js](https://raw.githubusercontent.com/jurajgallusads-stack/the-west-import/main/the-west-lenk.user.js): keď otvoríš obchodníka, nad hlavou mu vyskočí komiksová bublina so zakaždým inou hláškou, múdrosťou alebo vtipom z Divokého západu. Cez menu Tampermonkey (**lenk → Obrázok obchodníka…**) si môžeš vybrať vlastný obrázok, ktorý prekryje dedka; uloží sa iba v tvojom prehliadači. Iba kreslí v prehliadači, na herný server nič neposiela.
