@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.4.0
+// @version      1.4.1
 // @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -697,7 +697,7 @@
       h += `<tr><td><img class="ic" src="${esc(it.image)}" alt=""></td><td><span class="nm">${esc(it.name)}</span><br><span class="dim">${esc(SLOT_NAME[it.type] || '')} · nákupná cena ${money(it.price)}</span></td><td class="num">${money(priceWith(it.price, L.mk))}</td><td>${st}</td>`
         + `<td class="acts">${d && d.state === 'ok' ? '' : btn(own ? 'Vystaviť aj tak' : 'Vystaviť', 'mone', b, !home || mBusy || (d && d.state === 'busy'))}</td></tr>`;
     }
-    h += '</table><div class="foot">Predajca musí predmet priniesť na trh v tvojom meste. Ponuku zrušíš alebo vyzdvihneš v hre: Trh → Chci koupit.</div>';
+    h += '</table><div class="foot">Keď predajca požiadavku prijme, hra ti predmet pošle automaticky. Zrušiť ju môžeš v hre: Trh → Chci koupit.</div>';
     const sc = w.scrollTop;
     w.innerHTML = h;
     w.scrollTop = sc;

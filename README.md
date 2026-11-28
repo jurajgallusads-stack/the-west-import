@@ -135,7 +135,7 @@ Keď v hľadaní vyberieš **Mesto** (napríklad spolu so Zbierkami „len to, �
   - posiela rovnakú požiadavku ako dialóg hry „Koupit předmět?“. Hra zablokuje sumu ponuky a strhne **poplatok trhu, ktorý sa nevracia**. Skript ukáže poplatok každej požiadavky aj súčet;
   - požiadavky sa dajú vystaviť **iba vo vlastnom meste**. Mimo neho hra pýta nuggety, preto sú tlačidlá vypnuté;
   - predmety, na ktoré už na trhu požiadavku máš, sú označené a „Vystaviť ďalšiu“ ich preskočí. Pri otvorení sa to raz overí, rovnakou požiadavkou ako záložka Trh → Chci koupit;
-  - zrušenie alebo vyzdvihnutie ponuky robíš v hre: Trh → Chci koupit.
+  - keď predajca požiadavku prijme, hra ti predmet pošle automaticky. Zrušiť požiadavku môžeš v hre: Trh → Chci koupit.
 
 ## lenk (samostatný skript)
 
