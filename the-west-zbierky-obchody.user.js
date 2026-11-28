@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.1.0
+// @version      1.2.0
 // @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -21,6 +21,7 @@
   const DELAY = 2000;            // odstup medzi požiadavkami na obchody (ms)
   const SHOP_TTL = 3 * 864e5;    // sortiment obchodu sa znova načíta po 3 dňoch
   const TOWNS_TTL = 864e5;       // zoznam miest sa obnoví raz za deň
+  const COLL_TTL = 30 * 6e4;     // stav zbierok z Úspechov sa pri hľadaní obnoví najskôr po 30 minútach
   const MAX_TL = 30;             // vyššiu úroveň predaja nemá žiadny obchod v meste (vyššie = Obchodník)
   const KEY = 'twzo:' + location.host;
 
@@ -154,6 +155,53 @@
     return false;
   };
   const setName = it => { if (!it.set) return ''; try { const s = west.storage.ItemSetManager.get(it.set); return (s && s.name) || ''; } catch (e) { return ''; } };
+
+  // ---- otlačené predmety v zbierkach (Úspechy → Predmety → Zbierky) --------------------------
+  // DB.coll = { t: čas, got: [otlačené predmety], miss: [chýbajúce predmety] }
+  const decodeHtml = s => { const ta = document.createElement('textarea'); ta.innerHTML = s; return ta.value; };
+  const parseColl = data => {
+    const got = new Set(), miss = new Set();
+    const groups = (data && data.achievements) || {};
+    for (const g in groups) {
+      if (g === 'inslot' || !Array.isArray(groups[g])) continue;
+      for (const a of groups[g]) for (const m of (a && a.meta) || []) {
+        const re = /<span class="([^"]*)"[^>]*?title="([^"]*)"[^>]*>\s*<img[^>]*?src="[^"]*?images\/items\/(.+?)\.(?:png|jpg|gif)/g;
+        let x;
+        while ((x = re.exec(m))) {
+          const list = imgIndex().get(x[3]);
+          if (!list) continue;
+          const name = decodeHtml(x[2]).trim();
+          const it = list.find(i => String(i.name).trim() === name) || list[0];
+          (/\blocked\b/.test(x[1]) ? miss : got).add(baseOf(it));
+        }
+      }
+    }
+    for (const b of got) miss.delete(b);
+    return { got, miss };
+  };
+  let collSets = null;
+  const saveColl = c => { if (!c.got.size && !c.miss.size) return; DB.coll = { t: Date.now(), got: [...c.got], miss: [...c.miss] }; collSets = null; save(); };
+  const coll = () => {
+    if (!DB.coll) return null;
+    if (!collSets || collSets.t !== DB.coll.t) collSets = { t: DB.coll.t, got: new Set(DB.coll.got), miss: new Set(DB.coll.miss) };
+    return collSets;
+  };
+  let collLoading = null;
+  // Jedna požiadavka, rovnaká ako pri otvorení Úspechy → Zbierky v hre.
+  const loadColl = force => {
+    if (!force && DB.coll && Date.now() - DB.coll.t < COLL_TTL) return Promise.resolve();
+    if (collLoading) return collLoading;
+    collLoading = new Promise(resolve => {
+      const done = () => { collLoading = null; resolve(); };
+      try {
+        Ajax.remoteCall('achievement', 'get_list', { folder: 'collections', playerid: Character.playerId }, json => {
+          try { if (json && !json.error) saveColl(parseColl(json)); } catch (e) { console.warn('[twzo]', e); }
+          done();
+        });
+      } catch (e) { done(); }
+    });
+    return collLoading;
+  };
 
   // ---- mestá -------------------------------------------------------------------------------
   // town = [town_id, x, y, názov, počet obyvateľov, npc]
@@ -302,6 +350,7 @@
 #twzo table.res .nm{font-weight:bold}
 #twzo table.res .bv{font-weight:bold;color:#2f5a12}
 #twzo .ownd{color:#2f5a12;font-size:10px;font-weight:bold}
+#twzo .miss{color:#8a2a10;font-size:10px;font-weight:bold}
 #twzo-launch{cursor:pointer}
 #twzo-launch.fixed{position:fixed;z-index:99999;right:8px;bottom:180px;background:#5c3a1a;border:2px solid #e2c48c;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.5)}`;
     document.head.appendChild(st);
@@ -422,8 +471,8 @@
   };
 
   // ---- hľadanie ľubovoľného predmetu ----------------------------------------------------------
-  const F0 = { q: '', type: '', bonus: '', town: '', maxPrice: '', sort: 'near', usable: true, townOnly: true, hideOwned: false };
-  const filters = () => Object.assign({}, F0, DB.f || {});
+  const F0 = { q: '', type: '', bonus: '', town: '', maxPrice: '', sort: 'near', usable: true, townOnly: true, coll: '' };
+  const filters = () => { const f = Object.assign({}, F0, DB.f || {}); delete f.hideOwned; return f; };
   const opt = (v, label, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`;
   const searchForm = f => {
     const types = Object.keys(SLOT_NAME).map(k => opt(k, SLOT_NAME[k], f.type)).join('');
@@ -438,9 +487,9 @@
 <label class="wide">Mesto<select name="town"><option value="">Všetky mestá</option></select></label>
 <label>Max. cena ($)<input type="number" name="maxPrice" min="0" step="100" value="${esc(f.maxPrice)}"></label>
 <label>Zoradiť<select name="sort">${sorts}</select></label>
+<label class="wide">Zbierky (Úspechy)<select name="coll">${opt('', 'Všetky predmety', f.coll)}${opt('hide', 'Skryť, čo už mám otlačené', f.coll)}${opt('missing', 'Len to, čo mi chýba do zbierok', f.coll)}</select></label>
 <div class="cks"><label class="ck"><input type="checkbox" name="usable"${f.usable ? ' checked' : ''}> len pre moju postavu (úroveň, trieda, pohlavie)</label>
-<label class="ck"><input type="checkbox" name="townOnly"${f.townOnly ? ' checked' : ''}> len predmety z obchodov v mestách</label>
-<label class="ck"><input type="checkbox" name="hideOwned"${f.hideOwned ? ' checked' : ''}> skryť, čo už mám</label></div>
+<label class="ck"><input type="checkbox" name="townOnly"${f.townOnly ? ' checked' : ''}> len predmety z obchodov v mestách</label></div>
 </div><div id="twzo-res"></div>`;
   };
   const fillTowns = (w, f) => {
@@ -461,6 +510,8 @@
     const dist = byDistance();
     const townId = f.town ? +f.town : 0;
     const q = norm(f.q), maxP = +f.maxPrice || 0;
+    if (f.coll && (!DB.coll || Date.now() - DB.coll.t >= COLL_TTL) && !collLoading) loadColl().then(render);
+    const C = coll();
     const all = ItemManager.getAll();
     const rows = [];
     for (const k in all) {
@@ -477,7 +528,10 @@
       if (f.bonus && bv <= 0) continue;
       const base = baseOf(it), type = SHOP_OF[it.type];
       if (townId) { const s = shopSet(townId + ':' + type); if (!s || !s.has(base)) continue; }
-      if (f.hideOwned && owned(it)) continue;
+      if (f.coll && C) {
+        if (f.coll === 'hide' && C.got.has(base)) continue;
+        if (f.coll === 'missing' && !C.miss.has(base)) continue;
+      }
       let near = null, cnt = 0;
       if (kind === 'town') for (const d of dist) { const s = shopSet(d.t[0] + ':' + type); if (s && s.has(base)) { cnt++; if (!near) near = d; } }
       rows.push({ it, bv, near, cnt, kind });
@@ -493,6 +547,8 @@
     rows.sort(sorters[f.sort] || sorters.near);
     const limit = view.limit || 100;
     let h = status(types);
+    if (f.coll) h += !C ? `<div class="note">Načítavam stav zbierok z Úspechov…</div>`
+      : `<p class="dim" style="margin:2px 0">Zbierky: ${C.got.size} ${pl(C.got.size, 'otlačený predmet', 'otlačené predmety', 'otlačených predmetov')}, ${C.miss.size} ${pl(C.miss.size, 'chýba', 'chýbajú', 'chýba')} (stav ${age(DB.coll.t)}). <a class="lnk" data-act="reloadcoll">Obnoviť</a></p>`;
     if (townId) {
       const t = towns().find(x => x[0] === townId);
       const unknown = types.filter(ty => !DB.shops[townId + ':' + ty]);
@@ -508,7 +564,7 @@
           : r.near ? `${townCell(r.near.t)} <span class="dim">${dur(r.near.way)}${r.cnt > 1 ? ` · +${r.cnt - 1} ${pl(r.cnt - 1, 'ďalšie mesto', 'ďalšie mestá', 'ďalších miest')}` : ''}</span>`
             : `<span class="dim">zatiaľ nenájdené</span>`;
         h += `<tr><td><img class="ic" src="${esc(it.image)}" alt="" data-act="item" data-v="${baseOf(it)}" style="cursor:pointer"></td>`
-          + `<td><a class="lnk nm" data-act="item" data-v="${baseOf(it)}">${esc(it.name)}</a>${owned(it) ? ' <span class="ownd">✓ máš</span>' : ''}<br><span class="dim">${esc(SLOT_NAME[it.type] || it.type)} · úroveň ${it.level || 1}${sn ? ' · ' + esc(sn) : ''}</span></td>`
+          + `<td><a class="lnk nm" data-act="item" data-v="${baseOf(it)}">${esc(it.name)}</a>${C && C.got.has(baseOf(it)) ? ' <span class="ownd" title="Otlačené v zbierke v Úspechoch">✓ v zbierke</span>' : C && C.miss.has(baseOf(it)) ? ' <span class="miss" title="Chýba ti do zbierky v Úspechoch">chýba do zbierky</span>' : ''}${owned(it) ? ' <span class="dim">· v batohu</span>' : ''}<br><span class="dim">${esc(SLOT_NAME[it.type] || it.type)} · úroveň ${it.level || 1}${sn ? ' · ' + esc(sn) : ''}</span></td>`
           + (f.bonus ? `<td class="num bv">+${r.bv}</td>` : '')
           + `<td class="num">${money(it.price * charge)}${charge > 1 ? ` <span class="dim">(×${charge})</span>` : ''}</td><td>${where}</td>`
           + `<td class="acts">${r.near ? btn('Mesto', 'town', r.near.t[0]) : ''}</td></tr>`;
@@ -574,6 +630,7 @@
     else if (act === 'search') start({ mode: 'search' });
     else if (act === 'scan') { const types = typesOfView(); if (types.length) Scan.add(jobsFor(types, false)); }
     else if (act === 'scantown') { const tw = towns().find(x => String(x[0]) === v); if (tw) Scan.add(typesOfView().map(type => ({ k: tw[0] + ':' + type, id: tw[0], type, name: tw[3] }))); }
+    else if (act === 'reloadcoll') { loadColl(true).then(render); }
     else if (act === 'morerows') { view.limit = (view.limit || 100) + 100; render(); }
     else if (act === 'back' && view && view.back) start(view.back);
     else if (act === 'more') { const id = +v; if (expanded.has(id)) expanded.delete(id); else expanded.add(id); render(); }
@@ -649,8 +706,9 @@
     if (!P || P.__twzo || typeof P.updateContent !== 'function') return;
     P.__twzo = true;
     const orig = P.updateContent;
-    P.updateContent = function () {
+    P.updateContent = function (data) {
       const r = orig.apply(this, arguments);
+      try { if (String(this.playerid) === String(Character.playerId) && data && data.folder && data.folder.id === 'collections') { saveColl(parseColl(data)); if (view && view.mode === 'search') scheduleRender(); } } catch (e) { console.warn('[twzo]', e); }
       // Iba vlastné úspechy: pri cudzom profile „chýba“ znamená chýba jemu.
       try { if (String(this.playerid) === String(Character.playerId)) decorate(listOf(this)); } catch (e) { console.warn('[twzo]', e); }
       return r;

@@ -111,7 +111,8 @@ Ikona **lupy s $** v rade posilňovačov (vedľa porovnania setov) otvorí hľad
   - **Bonus:** vlastnosti, schopnosti (napr. Jazda na koni), rýchlosť pohybu, rýchlosť zvieraťa, skúsenosti, šťastie, peniaze, zber produktov, regenerácia, pracovné body;
   - **Mesto:** ukáže iba to, čo predáva vybrané mesto (mestá sú zoradené podľa vzdialenosti);
   - **Max. cena**;
-  - zaškrtávacie políčka **len pre moju postavu** (úroveň, trieda, pohlavie), **len predmety z obchodov v mestách** a **skryť, čo už mám** (batoh a výbava).
+  - **Zbierky (Úspechy):** všetky predmety, **skryť, čo už mám otlačené** v zbierkach, alebo **len to, čo mi chýba do zbierok**. Stav zbierok sa načíta jednou požiadavkou, rovnakou ako pri otvorení Úspechy → Zbierky. Potom sa obnoví najskôr o 30 minút, pri otvorení Zbierok v Úspechoch alebo cez **Obnoviť**. Pri predmetoch je značka **✓ v zbierke** alebo **chýba do zbierky**;
+  - zaškrtávacie políčka **len pre moju postavu** (úroveň, trieda, pohlavie) a **len predmety z obchodov v mestách**.
 - **Bonus** sa ráta pre tvoju postavu: bonusy rastúce s úrovňou sa prepočítajú na tvoj level a pri schopnosti sa pripočíta aj jej vlastnosť, rovnako ako v hre. Po výbere bonusu sa výsledky zoradia od najvyššieho.
 - **Zoradiť** sa dá aj podľa najbližšieho mesta, ceny, úrovne alebo názvu.
 - Pri každom predmete je **najbližšie mesto**, ktoré ho predáva, s časom cesty, počtom ďalších miest a cenou. Pri predmetoch, ktoré obchody nepredávajú, je napísané „iba Obchodník / trh“ alebo „nepredáva sa v obchode“. Klik na predmet ukáže všetky mestá, kde sa predáva, a **← späť na hľadanie** ťa vráti k filtrom.
