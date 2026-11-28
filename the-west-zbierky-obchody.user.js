@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The West – kde kúpiť do zbierky
 // @namespace    https://github.com/jurajgallusads-stack/the-west-import
-// @version      1.4.1
+// @version      1.4.2
 // @description  Ukáže, v ktorom meste a obchode sa dá kúpiť predmet, zoradené podľa vzdialenosti: pri chýbajúcich predmetoch zbierok v Úspechoch a cez hľadanie ľubovoľného predmetu s filtrami (ikona lupy). Nič nekupuje, obchody prehľadáva pomaly (1 požiadavka za 2 s).
 // @match        https://*.the-west.cz/game.php*
 // @match        https://*.the-west.sk/game.php*
@@ -310,6 +310,16 @@
 .twzo-b.twzo-found{background:#cfe8a6;border-color:#4d6b1f}
 .twzo-b.twzo-none{opacity:.6;font-size:9px}
 .twzo-bar{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:4px 10px 2px;font:11px Arial,sans-serif;color:#5b3a12}
+/* Rám okna hry je zložený z obrázkov 748 × 473 px; väčšie okno by malo medzery, cez ktoré presvitá mapa.
+   Pozadie okna sa preto roztiahne na celú plochu a stredy líšt sa doplnia (patchSeams). */
+.twzo-win .tw2gui_window_inset{background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:0 0 !important}
+.twzo-win .tw2gui_inner_window_bg2{display:none !important}
+.twzo-win .tw2gui_window_content_pane{background:#e6d2a4 url("${CDN()}/images/tw2gui/window/window2_bg.jpg?6") 0 0/100% 100% no-repeat}
+/* Tmavý nepriehľadný podklad pod celým rámom (okrem vonkajšieho tieňa), aby nikde nepresvitala mapa. */
+.twzo-win::before{content:'';position:absolute;left:10px;right:10px;top:12px;bottom:10px;background:#2a170b;border-radius:8px;z-index:-1;pointer-events:none}
+#twzo::-webkit-scrollbar{width:11px}#twzo::-webkit-scrollbar-track{background:rgba(90,60,20,.15);border-radius:6px}
+#twzo::-webkit-scrollbar-thumb{background:#8b6b3f;border-radius:6px;border:2px solid #e8d6aa}
+#twzo{scrollbar-color:#8b6b3f rgba(90,60,20,.15)}
 #twzo{font:12px Arial,Verdana,sans-serif;color:#2b1d0e;line-height:1.35;height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:10px 12px;background:#e6d2a4 url("${CDN()}/images/tw2gui/window/window2_bg.jpg?6") 0 0/100% 100% no-repeat}
 #twzo .hd{display:flex;gap:10px;align-items:center;margin-bottom:8px}
 #twzo .hd img{width:54px;height:54px;background:rgba(90,60,20,.15);border:1px solid #a8885a;border-radius:4px}
@@ -378,6 +388,40 @@
     scheduleRender();
   };
 
+  // Na stred hornej, dolnej a bočných líšt a titulku sa položí kúsok hladkej líšty z toho istého obrázka.
+  const patchSeams = () => {
+    const win = document.querySelector('.twzo-win');
+    if (!win) return;
+    win.querySelectorAll('.twzo-seam').forEach(e => e.remove());
+    const part = sel => win.querySelector(':scope > .tw2gui_window_border.' + sel);
+    const tl = part('tw2gui_bg_tl'), tr = part('tw2gui_bg_tr'), bl = part('tw2gui_bg_bl');
+    const borders = [...win.querySelectorAll(':scope > .tw2gui_window_border')];
+    const last = borders[borders.length - 1];
+    if (!last) return;
+    const add = css => { const d = document.createElement('div'); d.className = 'twzo-seam'; d.style.cssText = 'position:absolute;pointer-events:none;background-repeat:no-repeat;z-index:3;' + css; last.after(d); };
+    const img = el => el ? getComputedStyle(el).backgroundImage : 'none';
+    add(`top:0;left:calc(50% - 70px);width:140px;height:32px;background-image:${img(tl)};background-position:-150px 0`);
+    add(`bottom:0;left:calc(50% - 70px);width:140px;height:32px;background-image:${img(bl)};background-position:-150px 100%`);
+    const inset = win.querySelector('.tw2gui_window_inset');
+    const wr = win.getBoundingClientRect(), ir = inset ? inset.getBoundingClientRect() : null;
+    const ibg = inset ? getComputedStyle(inset).backgroundImage : 'none';
+    for (const side of ['left', 'right']) {
+      const pw = 32, ph = 140, px = side === 'left' ? 0 : wr.width - pw, py = Math.round(wr.height / 2 - ph / 2);
+      const under = ir ? `, ${ibg}` : '';
+      const pos = side === 'left' ? '0 -60px' : '100% -60px';
+      const upos = ir ? `, ${Math.round(ir.left - wr.left - px)}px ${Math.round(ir.top - wr.top - py)}px` : '';
+      const usize = ir ? `auto, ${Math.round(ir.width)}px ${Math.round(ir.height)}px` : 'auto';
+      add(`left:${px}px;top:${py}px;width:${pw}px;height:${ph}px;background-image:${img(side === 'left' ? tl : tr)}${under};background-position:${pos}${upos};background-size:${usize}`);
+    }
+    const tit = win.querySelector('.tw2gui_inner_window_title'), tleft = tit && tit.querySelector('.tw2gui_inner_window_title_left'), tright = tit && tit.querySelector('.tw2gui_inner_window_title_right');
+    if (tleft && tright) {
+      const cs = getComputedStyle(tleft), d = document.createElement('div');
+      d.className = 'twzo-seam';
+      d.style.cssText = `position:absolute;pointer-events:none;bottom:${cs.bottom};height:${cs.height};left:calc(50% - 70px);width:140px;background-image:${cs.backgroundImage};background-position:-300px 100%;background-repeat:no-repeat`;
+      tright.after(d);
+    }
+  };
+
   const openWin = () => {
     installCss();
     if (root()) return root();
@@ -387,6 +431,7 @@
     try { gwin.setMiniTitle('Kde kúpiť'); } catch (e) { }
     try { gwin.setSize(760, 540); } catch (e) { }
     gwin.appendToContentPane(w);
+    try { patchSeams(); } catch (e) { }
     w.addEventListener('click', onClick);
     w.addEventListener('input', onInput);
     w.addEventListener('change', onInput);
